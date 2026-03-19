@@ -1,3 +1,55 @@
+/* ===== APP HEADER ===== */
+.app-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 24px;
+  background: white;
+  border-bottom: 1px solid var(--border-card);
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+
+.app-header-logo {
+  height: 48px;
+  cursor: pointer;
+  object-fit: contain;
+}
+
+.app-header-title {
+  flex: 1;
+  text-align: center;
+}
+
+.app-header-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: #4a90a8;
+}
+
+.app-header-subtitle {
+  font-size: 0.85rem;
+  color: #888;
+}
+
+.app-header-home-btn {
+  background: none;
+  border: 1px solid var(--border-card);
+  border-radius: var(--radius-sm);
+  padding: 6px 14px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  transition: background 0.2s;
+}
+
+.app-header-home-btn:hover {
+  background: var(--bg-light);
+  color: var(--primary);
+}
+
 /* ===== RESET & BASE ===== */
 *, *::before, *::after {
   box-sizing: border-box;
@@ -6,18 +58,18 @@
 }
 
 :root {
-  --primary: #2c7a7b;
-  --primary-dark: #234e52;
-  --primary-light: #4fd1c5;
-  --primary-lighter: #b2f5ea;
-  --bg-main: #f0fafa;
+  --primary: #7ab8cc;
+  --primary-dark: #4a90a8;
+  --primary-light: #a8d4e2;
+  --primary-lighter: #dceef4;
+  --bg-main: #f4f8fa;
   --bg-card: #ffffff;
-  --bg-light: #e6fffa;
-  --text-main: #1a202c;
-  --text-secondary: #4a5568;
-  --text-muted: #718096;
-  --border: #bee3f8;
-  --border-card: #e2e8f0;
+  --bg-light: #eaf4f8;
+  --text-main: #333333;
+  --text-secondary: #666666;
+  --text-muted: #999999;
+  --border: #b8d8e4;
+  --border-card: #dde8ec;
   --danger: #c53030;
   --danger-light: #fff5f5;
   --danger-border: #feb2b2;

@@ -17,3 +17,20 @@ export async function sendFormEmail({ therapistEmail, therapistName, patientName
     publicKey
   );
 }
+
+export async function sendMaterialsEmail({ therapistEmail, therapistName, materialsList }) {
+  const serviceId = import.meta.env.VITE_EMAILJS_SERVICE_ID;
+  const templateId = import.meta.env.VITE_EMAILJS_MATERIALS_TEMPLATE_ID;
+  const publicKey = import.meta.env.VITE_EMAILJS_PUBLIC_KEY;
+
+  await emailjs.send(
+    serviceId,
+    templateId,
+    {
+      to_email: therapistEmail,
+      to_name: therapistName,
+      materials_list: materialsList,
+    },
+    publicKey
+  );
+}

@@ -135,6 +135,12 @@ export default function HomePage() {
         </div>
       )}
 
+      <div className="page-actions" style={{ marginBottom: '16px' }}>
+        <button className="btn btn-secondary" onClick={() => navigate('/materials')}>
+          📚 ספריית חומרים
+        </button>
+      </div>
+
       <div className="section">
         <div className="section-title">
           👥 מטפלים
