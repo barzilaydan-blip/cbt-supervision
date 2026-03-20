@@ -127,8 +127,8 @@ export default function HomePage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <div className="app-logo">🧠</div>
+      <div className="page-header" style={{ position: 'relative', overflow: 'hidden' }}>
+        <div className="page-header-watermark">🧠</div>
         <div>
           <h1>מעקב הדרכות CBT</h1>
           <div className="subtitle">מערכת לניהול הדרכות סופרוויזיה</div>
@@ -148,25 +148,23 @@ export default function HomePage() {
       </div>
 
       <div className="section">
-        <div className="section-title">
-          👥 מטפלים
+        <div className="section-title">👥 מטפלים</div>
+
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '12px', alignItems: 'center' }}>
+          <input
+            className="form-input"
+            type="text"
+            placeholder="חיפוש לפי שם..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            style={{ maxWidth: '280px' }}
+          />
           <button
-            className="btn btn-primary btn-sm"
-            style={{ marginRight: 'auto' }}
+            className="btn btn-primary"
             onClick={() => setShowAddForm((v) => !v)}
           >
             {showAddForm ? '✕ סגור' : '+ הוסף מטפל'}
           </button>
-        </div>
-
-        <div style={{ marginBottom: '12px' }}>
-          <input
-            className="form-input"
-            type="text"
-            placeholder="🔍 חיפוש מטפל..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
         </div>
 
         {showAddForm && (

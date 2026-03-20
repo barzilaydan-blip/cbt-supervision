@@ -290,3 +290,171 @@ export async function exportPatientPDF({ patientName, therapistName, sessions })
     document.body.removeChild(element);
   }
 }
+
+/**
+ * Export supervision hours summary for a therapist as PDF.
+ */
+export async function exportSummaryPDF({ therapist, patientRows, uniqueDates, totalHours }) {
+  const therapistName = therapist?.name || '';
+  const hoursPerSession = parseFloat(therapist?.hoursPerSession) || 0;
+  const exportDate = new Date().toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
+
+  const container = document.createElement('div');
+  container.style.cssText = [
+    'direction: rtl',
+    'font-family: Arial, Helvetica, sans-serif',
+    'font-size: 13px',
+    'line-height: 1.7',
+    'color: #1a202c',
+    'background: #ffffff',
+    'padding: 32px 40px',
+    'width: 750px',
+    'box-sizing: border-box',
+  ].join('; ');
+
+  // Header
+  const header = document.createElement('div');
+  header.style.cssText = [
+    'background: linear-gradient(135deg, #4a90a8 0%, #7ab8cc 100%)',
+    'color: white',
+    'padding: 24px 28px',
+    'border-radius: 10px',
+    'margin-bottom: 24px',
+  ].join('; ');
+  header.innerHTML = `
+    <h1 style="margin:0 0 4px;font-size:20px;font-weight:700;">סיכום שעות הדרכה</h1>
+    <p style="margin:0;font-size:14px;opacity:0.88;">${therapistName} | הופק: ${exportDate}</p>
+  `;
+  container.appendChild(header);
+
+  // Totals row
+  const totals = document.createElement('div');
+  totals.style.cssText = [
+    'display: flex',
+    'gap: 16px',
+    'margin-bottom: 24px',
+  ].join('; ');
+  const totalItems = [
+    { num: uniqueDates.length, label: 'מפגשי הדרכה' },
+    ...(hoursPerSession > 0 ? [
+      { num: hoursPerSession, label: 'שעות למפגש' },
+      { num: totalHours, label: 'סה"כ שעות' },
+    ] : []),
+  ];
+  totalItems.forEach(item => {
+    const box = document.createElement('div');
+    box.style.cssText = [
+      'flex: 1',
+      'background: #dceef4',
+      'border-radius: 8px',
+      'padding: 14px',
+      'text-align: center',
+    ].join('; ');
+    box.innerHTML = `
+      <div style="font-size:28px;font-weight:700;color:#4a90a8;">${item.num}</div>
+      <div style="font-size:12px;color:#555;margin-top:2px;">${item.label}</div>
+    `;
+    totals.appendChild(box);
+  });
+  container.appendChild(totals);
+
+  // Patient rows
+  patientRows.forEach(row => {
+    const block = document.createElement('div');
+    block.style.cssText = [
+      'margin-bottom: 14px',
+      'border: 1px solid #dde8ec',
+      'border-radius: 8px',
+      'overflow: hidden',
+    ].join('; ');
+
+    const rowHeader = document.createElement('div');
+    rowHeader.style.cssText = [
+      'background: #eaf4f8',
+      'padding: 10px 16px',
+      'display: flex',
+      'justify-content: space-between',
+      'align-items: center',
+    ].join('; ');
+    rowHeader.innerHTML = `
+      <span style="font-weight:700;font-size:14px;">${row.name}</span>
+      <span style="font-size:12px;background:#7ab8cc;color:white;padding:2px 10px;border-radius:20px;">${row.count} הדרכות</span>
+    `;
+    block.appendChild(rowHeader);
+
+    const datesDiv = document.createElement('div');
+    datesDiv.style.cssText = 'padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 6px;';
+    row.dates.forEach(d => {
+      const chip = document.createElement('span');
+      chip.style.cssText = [
+        'font-size: 12px',
+        'background: #f4f8fa',
+        'border: 1px solid #dde8ec',
+        'border-radius: 20px',
+        'padding: 3px 10px',
+        'color: #555',
+      ].join('; ');
+      chip.textContent = d;
+      datesDiv.appendChild(chip);
+    });
+    block.appendChild(datesDiv);
+    container.appendChild(block);
+  });
+
+  // Footer
+  const footer = document.createElement('div');
+  footer.style.cssText = 'margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#a0aec0;text-align:center;';
+  footer.textContent = `הופק ב-${exportDate} | מעקב הדרכות CBT`;
+  container.appendChild(footer);
+
+  // Render
+  container.style.position = 'fixed';
+  container.style.top = '-9999px';
+  container.style.left = '-9999px';
+  container.style.zIndex = '-1';
+  document.body.appendChild(container);
+
+  try {
+    const canvas = await html2canvas(container, {
+      scale: 2, useCORS: true, allowTaint: true,
+      backgroundColor: '#ffffff', width: 750, windowWidth: 750, logging: false,
+    });
+
+    const imgData = canvas.toDataURL('image/png');
+    const pageWidth = 210, pageHeight = 297, margin = 10;
+    const contentWidth = pageWidth - margin * 2;
+    const ratio = canvas.height / canvas.width;
+    const imgHeightMm = contentWidth * ratio;
+    const contentHeightPerPage = pageHeight - margin * 2;
+    const totalPages = Math.ceil(imgHeightMm / contentHeightPerPage);
+
+    const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+    for (let page = 0; page < totalPages; page++) {
+      if (page > 0) doc.addPage();
+      const srcY = page * contentHeightPerPage;
+      const sliceHeightMm = Math.min(contentHeightPerPage, imgHeightMm - srcY);
+      const pxPerMm = canvas.width / contentWidth;
+      const srcYPx = Math.round(srcY * pxPerMm);
+      const sliceHeightPx = Math.round(sliceHeightMm * pxPerMm);
+      const sliceCanvas = document.createElement('canvas');
+      sliceCanvas.width = canvas.width;
+      sliceCanvas.height = sliceHeightPx;
+      sliceCanvas.getContext('2d').drawImage(canvas, 0, srcYPx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
+      doc.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, sliceHeightMm);
+    }
+
+    const totalPagesCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPagesCount; i++) {
+      doc.setPage(i);
+      doc.setFontSize(9);
+      doc.setTextColor(160, 174, 192);
+      doc.text(`${i} / ${totalPagesCount}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
+    }
+
+    const safeName = therapistName.replace(/[^a-zA-Z\u0590-\u05FF\s]/g, '').trim().replace(/\s+/g, '_');
+    doc.save(`סיכום_הדרכות_${safeName}.pdf`);
+  } finally {
+    document.body.removeChild(container);
+  }
+}

@@ -8,6 +8,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { FOCUS_AREAS } from '../constants.js';
+import { rephraseText, getTherapeuticRecommendations, generateSessionSummary } from '../utils/aiService.js';
 
 export default function SessionPage() {
   const { sessionId } = useParams();
@@ -37,6 +38,7 @@ export default function SessionPage() {
         setSession(data);
         setDate(data.date || '');
         setNotes(data.notes || {});
+        if (data.summary) setSessionSummary(prev => prev || data.summary);
         setLoading(false);
 
         // Load patient + therapist once
@@ -104,9 +106,84 @@ export default function SessionPage() {
   const patientId = session?.patientId;
 
   const [expandedFields, setExpandedFields] = useState({ informationGathering: true });
+  const [aiLoading, setAiLoading] = useState({});
+  const [aiRecommendations, setAiRecommendations] = useState('');
+  const [aiRecsLoading, setAiRecsLoading] = useState(false);
+  const [sessionSummary, setSessionSummary] = useState('');
+  const [summaryLoading, setSummaryLoading] = useState(false);
 
   function toggleField(key) {
     setExpandedFields((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  async function handleRephrase(key) {
+    const text = notes[key];
+    if (!text || !text.trim()) return;
+    setAiLoading((prev) => ({ ...prev, [key]: true }));
+    try {
+      const rephrased = await rephraseText(text);
+      handleNoteChange(key, rephrased);
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה בניסוח מחדש. נסה שנית.');
+    } finally {
+      setAiLoading((prev) => ({ ...prev, [key]: false }));
+    }
+  }
+
+  async function handleRecommendations() {
+    const filledNotes = FOCUS_AREAS.filter(fa => notes[fa.key]?.trim())
+      .map(fa => `**${fa.label}:** ${notes[fa.key]}`)
+      .join('\n\n');
+    if (!filledNotes) return;
+    setAiRecsLoading(true);
+    setAiRecommendations('');
+    try {
+      const recs = await getTherapeuticRecommendations({
+        patientName: patient?.name,
+        focusAreaLabel: 'כלל תחומי ההדרכה',
+        notes: filledNotes,
+        therapistProfession: therapist?.profession,
+      });
+      setAiRecommendations(recs);
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה בקבלת המלצות. נסה שנית.');
+    } finally {
+      setAiRecsLoading(false);
+    }
+  }
+
+  async function handleGenerateSummary() {
+    const filledNotes = FOCUS_AREAS.filter(fa => notes[fa.key]?.trim())
+      .map(fa => `${fa.label}: ${notes[fa.key]}`)
+      .join('\n\n');
+    if (!filledNotes) return;
+    setSummaryLoading(true);
+    setSessionSummary('');
+    try {
+      const summary = await generateSessionSummary({
+        patientName: patient?.name,
+        therapistName: therapist?.name,
+        date: formatDate(date),
+        notes: filledNotes,
+      });
+      setSessionSummary(summary);
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה ביצירת הסיכום. נסה שנית.');
+    } finally {
+      setSummaryLoading(false);
+    }
+  }
+
+  async function handleSaveSummary() {
+    if (!sessionSummary.trim()) return;
+    try {
+      await updateDoc(doc(db, 'sessions', sessionId), { summary: sessionSummary });
+    } catch (err) {
+      console.error(err);
+    }
   }
 
   return (
@@ -171,6 +248,16 @@ export default function SessionPage() {
                       rows={4}
                       autoFocus={fa.key === 'informationGathering'}
                     />
+                    {notes[fa.key]?.trim() && (
+                      <button
+                        className="btn-ai-rephrase"
+                        onClick={() => handleRephrase(fa.key)}
+                        disabled={aiLoading[fa.key]}
+                        title="נסח מחדש עם AI"
+                      >
+                        {aiLoading[fa.key] ? '⏳ מנסח...' : '✨ נסח מחדש'}
+                      </button>
+                    )}
                   </div>
                 )}
               </div>
@@ -181,10 +268,52 @@ export default function SessionPage() {
             <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ minWidth: '120px' }}>
               {saving ? '⏳ שומר...' : '💾 שמור'}
             </button>
+            <button
+              className="btn btn-ai"
+              onClick={handleRecommendations}
+              disabled={aiRecsLoading}
+            >
+              {aiRecsLoading ? '⏳ מייצר המלצות...' : '💡 המלצות טיפוליות'}
+            </button>
+            <button
+              className="btn btn-ai"
+              onClick={handleGenerateSummary}
+              disabled={summaryLoading}
+            >
+              {summaryLoading ? '⏳ מייצר סיכום...' : '📋 סיכום פגישה'}
+            </button>
             <button className="btn btn-secondary" onClick={() => navigate(patientId ? `/patient/${patientId}` : '/')}>
               חזרה למטופל
             </button>
           </div>
+
+          {aiRecommendations && (
+            <div className="ai-recommendations-box">
+              <div className="ai-recommendations-header">
+                <span>💡 המלצות טיפוליות</span>
+                <button className="ai-recommendations-close" onClick={() => setAiRecommendations('')}>✕</button>
+              </div>
+              <div className="ai-recommendations-content">{aiRecommendations}</div>
+            </div>
+          )}
+
+          {(sessionSummary || summaryLoading) && (
+            <div className="session-summary-box">
+              <div className="session-summary-header">
+                <span>📋 סיכום פגישה</span>
+                <button className="ai-recommendations-close" onClick={() => setSessionSummary('')}>✕</button>
+              </div>
+              <textarea
+                className="session-summary-textarea"
+                value={sessionSummary}
+                onChange={(e) => setSessionSummary(e.target.value)}
+                onBlur={handleSaveSummary}
+                rows={5}
+                placeholder="הסיכום יופיע כאן..."
+                disabled={summaryLoading}
+              />
+            </div>
+          )}
         </div>
       )}
     </div>
