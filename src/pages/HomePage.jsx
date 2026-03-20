@@ -43,6 +43,7 @@ export default function HomePage() {
   const [showAddForm, setShowAddForm] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [error, setError] = useState('');
+  const [search, setSearch] = useState('');
 
   useEffect(() => {
     const q = query(collection(db, 'therapists'), orderBy('createdAt', 'asc'));
@@ -113,6 +114,11 @@ export default function HomePage() {
     }
   }
 
+  const filteredTherapists = therapists.filter((t) => {
+    const name = (t.name || ((t.firstName || '') + ' ' + (t.lastName || ''))).trim().toLowerCase();
+    return name.includes(search.toLowerCase());
+  });
+
   const getInitials = (name) => {
     const parts = name.trim().split(' ');
     if (parts.length >= 2) return parts[0][0] + parts[1][0];
@@ -151,6 +157,16 @@ export default function HomePage() {
           >
             {showAddForm ? '✕ סגור' : '+ הוסף מטפל'}
           </button>
+        </div>
+
+        <div style={{ marginBottom: '12px' }}>
+          <input
+            className="form-input"
+            type="text"
+            placeholder="🔍 חיפוש מטפל..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+          />
         </div>
 
         {showAddForm && (
@@ -199,14 +215,14 @@ export default function HomePage() {
             <div className="spinner" />
             <span>טוען נתונים...</span>
           </div>
-        ) : therapists.length === 0 ? (
+        ) : filteredTherapists.length === 0 ? (
           <div className="empty-state">
             <div className="empty-state-icon">👤</div>
-            <p>אין מטפלים עדיין. הוסף מטפל ראשון כדי להתחיל.</p>
+            <p>{search ? 'לא נמצאו מטפלים התואמים לחיפוש.' : 'אין מטפלים עדיין. הוסף מטפל ראשון כדי להתחיל.'}</p>
           </div>
         ) : (
           <div className="card-list">
-            {therapists.map((t) => (
+            {filteredTherapists.map((t) => (
               <div
                 key={t.id}
                 className="card card-clickable"
