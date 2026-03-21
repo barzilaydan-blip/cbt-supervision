@@ -44,6 +44,7 @@ export default function HomePage() {
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [error, setError] = useState('');
   const [search, setSearch] = useState('');
+  const [showKebab, setShowKebab] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'therapists'), orderBy('createdAt', 'asc'));
@@ -127,11 +128,35 @@ export default function HomePage() {
 
   return (
     <div className="page">
-      <div className="page-header" style={{ position: 'relative', overflow: 'hidden' }}>
-        <div className="page-header-watermark">🧠</div>
+      <div className="page-header">
         <div>
           <h1>מעקב הדרכות CBT</h1>
           <div className="subtitle">מערכת לניהול הדרכות סופרוויזיה</div>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <button
+            className="patient-header-kebab"
+            onClick={() => setShowKebab(v => !v)}
+            title="תפריט"
+          >
+            ⋮
+          </button>
+          {showKebab && (
+            <div className="patient-gear-dropdown">
+              <button
+                className="patient-gear-item"
+                onClick={() => { navigate('/materials'); setShowKebab(false); }}
+              >
+                📚 ספריית חומרים
+              </button>
+              <button
+                className="patient-gear-item"
+                onClick={() => { navigate('/'); setShowKebab(false); }}
+              >
+                👥 מטפלים
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -140,12 +165,6 @@ export default function HomePage() {
           ⚠️ {error}
         </div>
       )}
-
-      <div className="page-actions" style={{ marginBottom: '16px' }}>
-        <button className="btn btn-secondary" onClick={() => navigate('/materials')}>
-          📚 ספריית חומרים
-        </button>
-      </div>
 
       <div className="section">
         <div className="section-title">👥 מטפלים</div>
