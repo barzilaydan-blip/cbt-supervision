@@ -1413,7 +1413,7 @@ body {
 .material-tag-pill {
   padding: 3px 10px;
   background: #e8eaf6;
-  color: #4f46e5;
+  color: #4b5563;
   border: none;
   border-radius: 20px;
   font-size: 0.78rem;
@@ -1484,7 +1484,7 @@ body {
 .tag-suggestion-pill {
   padding: 3px 10px;
   background: #f0f1fb;
-  color: #4f46e5;
+  color: #4b5563;
   border: 1px dashed #a5b4fc;
   border-radius: 20px;
   font-size: 0.78rem;
