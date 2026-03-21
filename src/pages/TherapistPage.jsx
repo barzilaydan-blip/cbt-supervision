@@ -148,6 +148,8 @@ export default function TherapistPage() {
   // Materials section
   const [materials, setMaterials] = useState([]);
   const [showMaterials, setShowMaterials] = useState(false);
+  const [materialSearch, setMaterialSearch] = useState('');
+  const [materialCatFilter, setMaterialCatFilter] = useState('הכל');
   const [selectedMaterials, setSelectedMaterials] = useState({});
   const [sendingMaterials, setSendingMaterials] = useState(false);
   const [materialsSent, setMaterialsSent] = useState(false);
@@ -476,31 +478,74 @@ export default function TherapistPage() {
         )}
 
         {/* חומרי עזר — פאנל נופל */}
-        {showMaterials && (
-          <div className="therapist-details-panel">
-            {materialsError && <div className="alert alert-error">⚠️ {materialsError}</div>}
-            {materialsSent && <div className="alert alert-success">✅ החומרים נשלחו בהצלחה!</div>}
-            {materials.length === 0 ? (
-              <div className="focus-area-empty">אין חומרים בספרייה. הוסף חומרים מהדף הראשי.</div>
-            ) : (
-              <>
-                <div style={{ marginBottom: '12px', color: 'var(--text-secondary)', fontSize: '0.9rem' }}>סמן את החומרים לשליחה:</div>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                  {materials.map(m => (
-                    <label key={m.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                      <input type="checkbox" checked={!!selectedMaterials[m.id]} onChange={e => setSelectedMaterials(prev => ({ ...prev, [m.id]: e.target.checked }))} />
-                      <span><strong>{m.name}</strong> <span style={{ color: 'var(--text-secondary)', fontSize: '0.85rem' }}>({m.category})</span></span>
-                    </label>
-                  ))}
-                </div>
-                <button className="btn btn-primary btn-sm" onClick={handleSendMaterials} disabled={sendingMaterials || Object.values(selectedMaterials).every(v => !v) || !therapist?.email}>
-                  {sendingMaterials ? '⏳ שולח...' : '📧 שלח למטפל'}
-                </button>
-                {!therapist?.email && <div style={{ marginTop: '8px', color: 'var(--danger)', fontSize: '0.85rem' }}>⚠️ יש להוסיף כתובת מייל בפרטי המטפל לפני השליחה.</div>}
-              </>
-            )}
-          </div>
-        )}
+        {showMaterials && (() => {
+          const cats = ['הכל', ...([...new Set(materials.map(m => m.category).filter(Boolean))].sort())];
+          const txt = materialSearch.trim().toLowerCase();
+          const filtered = materials.filter(m => {
+            const matchCat = materialCatFilter === 'הכל' || m.category === materialCatFilter;
+            const matchTxt = !txt ||
+              m.name?.toLowerCase().includes(txt) ||
+              m.description?.toLowerCase().includes(txt) ||
+              m.tags?.some(t => t.toLowerCase().includes(txt));
+            return matchCat && matchTxt;
+          });
+          const selectedCount = Object.values(selectedMaterials).filter(Boolean).length;
+          return (
+            <div className="therapist-details-panel">
+              {materialsError && <div className="alert alert-error">⚠️ {materialsError}</div>}
+              {materialsSent && <div className="alert alert-success">✅ החומרים נשלחו בהצלחה!</div>}
+              {materials.length === 0 ? (
+                <div className="focus-area-empty">אין חומרים בספרייה. הוסף חומרים מהדף הראשי.</div>
+              ) : (
+                <>
+                  <input
+                    className="materials-search-input"
+                    type="text"
+                    placeholder="🔍 חיפוש לפי שם, תיאור או תגית..."
+                    value={materialSearch}
+                    onChange={e => setMaterialSearch(e.target.value)}
+                    style={{ marginBottom: '10px', width: '100%' }}
+                  />
+                  <div className="mat-cat-filter-row">
+                    {cats.map(cat => (
+                      <button
+                        key={cat}
+                        className={`mat-cat-pill${materialCatFilter === cat ? ' active' : ''}`}
+                        onClick={() => setMaterialCatFilter(cat)}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '8px 0' }}>
+                    {selectedCount > 0 ? `נבחרו ${selectedCount} חומרים` : 'סמן חומרים לשליחה:'}
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
+                    {filtered.length === 0
+                      ? <div className="focus-area-empty">לא נמצאו חומרים.</div>
+                      : filtered.map(m => (
+                        <label key={m.id} className="mat-send-row">
+                          <input type="checkbox" checked={!!selectedMaterials[m.id]} onChange={e => setSelectedMaterials(prev => ({ ...prev, [m.id]: e.target.checked }))} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{m.name}</div>
+                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '3px' }}>
+                              <span className="mat-send-cat">{m.category}</span>
+                              {m.tags?.map(t => <span key={t} className="mat-send-tag">{t}</span>)}
+                            </div>
+                          </div>
+                        </label>
+                      ))
+                    }
+                  </div>
+                  <button className="btn btn-primary btn-sm" onClick={handleSendMaterials} disabled={sendingMaterials || selectedCount === 0 || !therapist?.email}>
+                    {sendingMaterials ? '⏳ שולח...' : `📧 שלח ${selectedCount > 0 ? `(${selectedCount})` : ''} למטפל`}
+                  </button>
+                  {!therapist?.email && <div style={{ marginTop: '8px', color: 'var(--danger)', fontSize: '0.85rem' }}>⚠️ יש להוסיף כתובת מייל בפרטי המטפל לפני השליחה.</div>}
+                </>
+              )}
+            </div>
+          );
+        })()}
       </div>
 
       {error && <div className="alert alert-error">⚠️ {error}</div>}

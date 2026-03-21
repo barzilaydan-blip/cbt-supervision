@@ -1378,6 +1378,59 @@ body {
 }
 
 /* All tags row (tag cloud for filtering) */
+/* Materials send panel — TherapistPage */
+.mat-cat-filter-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+
+.mat-cat-pill {
+  padding: 4px 12px;
+  border: 1px solid var(--border-card);
+  border-radius: 20px;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s, color 0.15s;
+}
+
+.mat-cat-pill.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.mat-send-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  padding: 8px 10px;
+  border-radius: var(--radius-md);
+  transition: background 0.12s;
+}
+
+.mat-send-row:hover { background: var(--bg-light); }
+
+.mat-send-cat {
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+  background: #f3f4f6;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
+.mat-send-tag {
+  font-size: 0.75rem;
+  color: #4b5563;
+  background: #e8eaf6;
+  padding: 1px 7px;
+  border-radius: 10px;
+}
+
 .all-tags-row {
   display: flex;
   flex-wrap: wrap;
