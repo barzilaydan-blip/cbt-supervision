@@ -134,7 +134,8 @@ export default function PatientPage() {
     if (!patient || !therapist) return;
     setPdfLoading(true);
     try {
-      await exportPatientPDF({ patientName: patient.name, therapistName: therapist.name, sessions });
+      const sessionsWithDate = sessions.filter(s => s.date);
+      await exportPatientPDF({ patientName: patient.name, therapistName: therapist.name, sessions: sessionsWithDate });
     } catch (err) {
       console.error(err);
       setError('שגיאה ביצוא PDF. נסה שנית.');
