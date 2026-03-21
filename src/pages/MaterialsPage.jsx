@@ -13,11 +13,15 @@ export default function MaterialsPage() {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [form, setForm] = useState({ name: '', url: '', category: 'שאלונים', description: '' });
+  const [formTags, setFormTags] = useState([]);
+  const [tagInput, setTagInput] = useState('');
   const [openDesc, setOpenDesc] = useState(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [showKebab, setShowKebab] = useState(false);
+  const [search, setSearch] = useState('');
+  const [activeTags, setActiveTags] = useState([]);
 
   useEffect(() => {
     const q = query(collection(db, 'materials'), orderBy('createdAt', 'asc'));
@@ -27,6 +31,18 @@ export default function MaterialsPage() {
     );
     return unsub;
   }, []);
+
+  function addFormTag() {
+    const tag = tagInput.trim().replace(/,+$/, '');
+    if (!tag || formTags.includes(tag)) { setTagInput(''); return; }
+    setFormTags(prev => [...prev, tag]);
+    setTagInput('');
+  }
+
+  function handleTagInputKeyDown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addFormTag(); }
+    if (e.key === ',') { e.preventDefault(); addFormTag(); }
+  }
 
   async function handleAdd(e) {
     e.preventDefault();
@@ -39,9 +55,12 @@ export default function MaterialsPage() {
       await addDoc(collection(db, 'materials'), {
         name, url, category: form.category,
         description: form.description.trim(),
+        tags: formTags,
         createdAt: serverTimestamp(),
       });
       setForm({ name: '', url: '', category: 'שאלונים', description: '' });
+      setFormTags([]);
+      setTagInput('');
       setShowAddForm(false);
     } catch (err) {
       console.error(err);
@@ -61,10 +80,76 @@ export default function MaterialsPage() {
     }
   }
 
+  function toggleActiveTag(tag) {
+    setActiveTags(prev =>
+      prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
+    );
+  }
+
+  const isFiltering = search.trim() !== '' || activeTags.length > 0;
+
+  const filtered = materials.filter(m => {
+    const text = search.trim().toLowerCase();
+    const matchesText = !text ||
+      m.name?.toLowerCase().includes(text) ||
+      m.description?.toLowerCase().includes(text) ||
+      m.tags?.some(t => t.toLowerCase().includes(text));
+    const matchesTags = activeTags.every(t => m.tags?.includes(t));
+    return matchesText && matchesTags;
+  });
+
   const grouped = MATERIAL_CATEGORIES.reduce((acc, cat) => {
     acc[cat] = materials.filter(m => m.category === cat);
     return acc;
   }, {});
+
+  function MaterialCard({ m }) {
+    return (
+      <div className="material-card">
+        <div className="card">
+          <div className="card-body">
+            <div className="card-title">{m.name}</div>
+            <a href={m.url} target="_blank" rel="noopener noreferrer" className="card-meta">
+              🔗 פתח קישור
+            </a>
+            {m.tags?.length > 0 && (
+              <div className="material-tags-row">
+                {m.tags.map(tag => (
+                  <button
+                    key={tag}
+                    className={`material-tag-pill${activeTags.includes(tag) ? ' active' : ''}`}
+                    onClick={() => toggleActiveTag(tag)}
+                    title={activeTags.includes(tag) ? 'הסר פילטר' : 'סנן לפי תגית'}
+                  >
+                    {tag}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+          <div className="card-actions">
+            <button
+              className="material-eye-btn"
+              onClick={() => setOpenDesc(openDesc === m.id ? null : m.id)}
+              title="תיאור"
+            >
+              👁
+            </button>
+            <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(m.id)}>
+              🗑 מחק
+            </button>
+          </div>
+        </div>
+        {openDesc === m.id && (
+          <div className="material-desc-panel">
+            {m.description?.trim()
+              ? m.description
+              : <span className="material-desc-empty">אין מידע נוסף</span>}
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <div className="page">
@@ -84,16 +169,10 @@ export default function MaterialsPage() {
           </button>
           {showKebab && (
             <div className="patient-gear-dropdown">
-              <button
-                className="patient-gear-item"
-                onClick={() => { navigate('/materials'); setShowKebab(false); }}
-              >
+              <button className="patient-gear-item" onClick={() => { navigate('/materials'); setShowKebab(false); }}>
                 📚 ספריית חומרים
               </button>
-              <button
-                className="patient-gear-item"
-                onClick={() => { navigate('/'); setShowKebab(false); }}
-              >
+              <button className="patient-gear-item" onClick={() => { navigate('/'); setShowKebab(false); }}>
                 👥 מטפלים
               </button>
             </div>
@@ -144,11 +223,49 @@ export default function MaterialsPage() {
                 rows={3}
               />
             </div>
+            <div className="form-group">
+              <label>תגיות (אופציונלי)</label>
+              <div className="material-chip-row">
+                {formTags.map(tag => (
+                  <span key={tag} className="material-tag-chip">
+                    {tag}
+                    <button type="button" onClick={() => setFormTags(prev => prev.filter(t => t !== tag))}>×</button>
+                  </span>
+                ))}
+                <input
+                  className="material-chip-input"
+                  type="text"
+                  placeholder="הקלד תגית ולחץ Enter..."
+                  value={tagInput}
+                  onChange={e => setTagInput(e.target.value)}
+                  onKeyDown={handleTagInputKeyDown}
+                  onBlur={addFormTag}
+                />
+              </div>
+            </div>
             <button type="submit" className="btn btn-primary"
               disabled={adding || !form.name.trim() || !form.url.trim()}>
               {adding ? 'מוסיף...' : 'הוסף'}
             </button>
           </form>
+        </div>
+      )}
+
+      {/* Search row */}
+      {!loading && materials.length > 0 && (
+        <div className="materials-search-row">
+          <input
+            className="materials-search-input"
+            type="text"
+            placeholder="🔍 חיפוש חומרים..."
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+          />
+          {activeTags.map(tag => (
+            <button key={tag} className="active-tag-pill" onClick={() => toggleActiveTag(tag)}>
+              {tag} ×
+            </button>
+          ))}
         </div>
       )}
 
@@ -159,42 +276,24 @@ export default function MaterialsPage() {
           <div className="empty-state-icon">📚</div>
           <p>אין חומרים עדיין. הוסף חומר ראשון.</p>
         </div>
+      ) : isFiltering ? (
+        <div className="section">
+          <div className="section-title" style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+            נמצאו {filtered.length} תוצאות
+          </div>
+          <div className="card-list">
+            {filtered.length === 0
+              ? <div className="focus-area-empty">לא נמצאו חומרים התואמים לחיפוש.</div>
+              : filtered.map(m => <MaterialCard key={m.id} m={m} />)
+            }
+          </div>
+        </div>
       ) : (
         MATERIAL_CATEGORIES.map(cat => grouped[cat].length > 0 && (
           <div key={cat} className="section">
             <div className="section-title">{cat}</div>
             <div className="card-list">
-              {grouped[cat].map(m => (
-                <div key={m.id} className="material-card">
-                  <div className="card">
-                    <div className="card-body">
-                      <div className="card-title">{m.name}</div>
-                      <a href={m.url} target="_blank" rel="noopener noreferrer" className="card-meta">
-                        🔗 פתח קישור
-                      </a>
-                    </div>
-                    <div className="card-actions">
-                      <button
-                        className="material-eye-btn"
-                        onClick={() => setOpenDesc(openDesc === m.id ? null : m.id)}
-                        title="תיאור"
-                      >
-                        👁
-                      </button>
-                      <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(m.id)}>
-                        🗑 מחק
-                      </button>
-                    </div>
-                  </div>
-                  {openDesc === m.id && (
-                    <div className="material-desc-panel">
-                      {m.description?.trim()
-                        ? m.description
-                        : <span className="material-desc-empty">אין מידע נוסף</span>}
-                    </div>
-                  )}
-                </div>
-              ))}
+              {grouped[cat].map(m => <MaterialCard key={m.id} m={m} />)}
             </div>
           </div>
         ))
