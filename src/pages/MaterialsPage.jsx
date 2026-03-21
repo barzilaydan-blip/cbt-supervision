@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  collection, onSnapshot, addDoc, deleteDoc, doc, serverTimestamp, orderBy, query,
+  collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, orderBy, query,
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
 
@@ -22,6 +22,11 @@ export default function MaterialsPage() {
   const [showKebab, setShowKebab] = useState(false);
   const [search, setSearch] = useState('');
   const [activeTags, setActiveTags] = useState([]);
+  const [editingMaterial, setEditingMaterial] = useState(null);
+  const [editForm, setEditForm] = useState({ name: '', url: '', category: 'שאלונים', description: '' });
+  const [editTags, setEditTags] = useState([]);
+  const [editTagInput, setEditTagInput] = useState('');
+  const [saving, setSaving] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'materials'), orderBy('createdAt', 'asc'));
@@ -80,6 +85,47 @@ export default function MaterialsPage() {
     }
   }
 
+  function openEdit(m) {
+    setEditingMaterial(m);
+    setEditForm({ name: m.name || '', url: m.url || '', category: m.category || 'שאלונים', description: m.description || '' });
+    setEditTags(m.tags || []);
+    setEditTagInput('');
+  }
+
+  function addEditTag() {
+    const tag = editTagInput.trim().replace(/,+$/, '');
+    if (!tag || editTags.includes(tag)) { setEditTagInput(''); return; }
+    setEditTags(prev => [...prev, tag]);
+    setEditTagInput('');
+  }
+
+  function handleEditTagKeyDown(e) {
+    if (e.key === 'Enter') { e.preventDefault(); addEditTag(); }
+    if (e.key === ',') { e.preventDefault(); addEditTag(); }
+  }
+
+  async function handleUpdate(e) {
+    e.preventDefault();
+    const name = editForm.name.trim();
+    const url = editForm.url.trim();
+    if (!name || !url) return;
+    setSaving(true);
+    setError('');
+    try {
+      await updateDoc(doc(db, 'materials', editingMaterial.id), {
+        name, url, category: editForm.category,
+        description: editForm.description.trim(),
+        tags: editTags,
+      });
+      setEditingMaterial(null);
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה בעדכון חומר.');
+    } finally {
+      setSaving(false);
+    }
+  }
+
   function toggleActiveTag(tag) {
     setActiveTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
@@ -134,6 +180,13 @@ export default function MaterialsPage() {
               title="תיאור"
             >
               👁
+            </button>
+            <button
+              className="material-eye-btn"
+              onClick={() => openEdit(m)}
+              title="עריכה"
+            >
+              ✏️
             </button>
             <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(m.id)}>
               🗑 מחק
@@ -308,6 +361,73 @@ export default function MaterialsPage() {
               <button className="btn btn-danger" onClick={() => handleDelete(confirmDelete)}>מחק</button>
               <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>ביטול</button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {editingMaterial && (
+        <div className="confirm-overlay" onClick={() => setEditingMaterial(null)}>
+          <div className="material-edit-dialog" onClick={e => e.stopPropagation()}>
+            <h3>עריכת חומר</h3>
+            <form onSubmit={handleUpdate}>
+              <div className="form-group">
+                <label>שם החומר</label>
+                <input
+                  className="form-input" type="text"
+                  value={editForm.name} onChange={e => setEditForm(f => ({ ...f, name: e.target.value }))}
+                  autoFocus
+                />
+              </div>
+              <div className="form-group">
+                <label>קישור</label>
+                <input
+                  className="form-input" type="url"
+                  value={editForm.url} onChange={e => setEditForm(f => ({ ...f, url: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label>קטגוריה</label>
+                <select className="form-input" value={editForm.category}
+                  onChange={e => setEditForm(f => ({ ...f, category: e.target.value }))}>
+                  {MATERIAL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>תיאור</label>
+                <textarea
+                  className="form-input"
+                  value={editForm.description}
+                  onChange={e => setEditForm(f => ({ ...f, description: e.target.value }))}
+                  rows={3}
+                />
+              </div>
+              <div className="form-group">
+                <label>תגיות</label>
+                <div className="material-chip-row">
+                  {editTags.map(tag => (
+                    <span key={tag} className="material-tag-chip">
+                      {tag}
+                      <button type="button" onClick={() => setEditTags(prev => prev.filter(t => t !== tag))}>×</button>
+                    </span>
+                  ))}
+                  <input
+                    className="material-chip-input"
+                    type="text"
+                    placeholder="הקלד תגית ולחץ Enter..."
+                    value={editTagInput}
+                    onChange={e => setEditTagInput(e.target.value)}
+                    onKeyDown={handleEditTagKeyDown}
+                    onBlur={addEditTag}
+                  />
+                </div>
+              </div>
+              <div className="confirm-dialog-actions">
+                <button type="submit" className="btn btn-primary" disabled={saving || !editForm.name.trim() || !editForm.url.trim()}>
+                  {saving ? 'שומר...' : 'שמור'}
+                </button>
+                <button type="button" className="btn btn-secondary" onClick={() => setEditingMaterial(null)}>ביטול</button>
+              </div>
+            </form>
           </div>
         </div>
       )}
