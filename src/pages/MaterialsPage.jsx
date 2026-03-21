@@ -12,7 +12,8 @@ export default function MaterialsPage() {
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [form, setForm] = useState({ name: '', url: '', category: 'שאלונים' });
+  const [form, setForm] = useState({ name: '', url: '', category: 'שאלונים', description: '' });
+  const [openDesc, setOpenDesc] = useState(null);
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
@@ -36,9 +37,11 @@ export default function MaterialsPage() {
     setError('');
     try {
       await addDoc(collection(db, 'materials'), {
-        name, url, category: form.category, createdAt: serverTimestamp(),
+        name, url, category: form.category,
+        description: form.description.trim(),
+        createdAt: serverTimestamp(),
       });
-      setForm({ name: '', url: '', category: 'שאלונים' });
+      setForm({ name: '', url: '', category: 'שאלונים', description: '' });
       setShowAddForm(false);
     } catch (err) {
       console.error(err);
@@ -131,6 +134,16 @@ export default function MaterialsPage() {
                 {MATERIAL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
+            <div className="form-group">
+              <label>תיאור (אופציונלי)</label>
+              <textarea
+                className="form-input"
+                placeholder="תיאור קצר של החומר..."
+                value={form.description}
+                onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
+                rows={3}
+              />
+            </div>
             <button type="submit" className="btn btn-primary"
               disabled={adding || !form.name.trim() || !form.url.trim()}>
               {adding ? 'מוסיף...' : 'הוסף'}
@@ -152,18 +165,34 @@ export default function MaterialsPage() {
             <div className="section-title">{cat}</div>
             <div className="card-list">
               {grouped[cat].map(m => (
-                <div key={m.id} className="card">
-                  <div className="card-body">
-                    <div className="card-title">{m.name}</div>
-                    <a href={m.url} target="_blank" rel="noopener noreferrer" className="card-meta">
-                      🔗 פתח קישור
-                    </a>
+                <div key={m.id} className="material-card">
+                  <div className="card">
+                    <div className="card-body">
+                      <div className="card-title">{m.name}</div>
+                      <a href={m.url} target="_blank" rel="noopener noreferrer" className="card-meta">
+                        🔗 פתח קישור
+                      </a>
+                    </div>
+                    <div className="card-actions">
+                      <button
+                        className="material-eye-btn"
+                        onClick={() => setOpenDesc(openDesc === m.id ? null : m.id)}
+                        title="תיאור"
+                      >
+                        👁
+                      </button>
+                      <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(m.id)}>
+                        🗑 מחק
+                      </button>
+                    </div>
                   </div>
-                  <div className="card-actions">
-                    <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(m.id)}>
-                      🗑 מחק
-                    </button>
-                  </div>
+                  {openDesc === m.id && (
+                    <div className="material-desc-panel">
+                      {m.description?.trim()
+                        ? m.description
+                        : <span className="material-desc-empty">אין מידע נוסף</span>}
+                    </div>
+                  )}
                 </div>
               ))}
             </div>
