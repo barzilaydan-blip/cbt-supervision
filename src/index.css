@@ -1278,25 +1278,22 @@ body {
 
 .btn-add-session {
   display: block;
-  width: calc(100% - 48px);
-  margin: 12px 24px 4px;
-  padding: 10px 16px;
-  background: white;
-  border: 2px dashed var(--primary);
-  border-radius: var(--radius-md);
+  margin: 10px 24px 4px auto;
+  padding: 5px 10px;
+  background: none;
+  border: none;
   color: var(--primary);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 0.9rem;
+  font-weight: 500;
   cursor: pointer;
-  text-align: center;
-  transition: background 0.2s, color 0.2s;
+  opacity: 0.75;
+  transition: opacity 0.2s;
 }
 .btn-add-session:hover:not(:disabled) {
-  background: var(--primary);
-  color: white;
+  opacity: 1;
 }
 .btn-add-session:disabled {
-  opacity: 0.5;
+  opacity: 0.35;
   cursor: not-allowed;
 }
 
