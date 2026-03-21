@@ -432,34 +432,44 @@ export default function MaterialsPage() {
               </div>
               <div className="form-group">
                 <label>תגיות</label>
-                <div className="material-chip-row">
-                  {editTags.map(tag => (
-                    <span key={tag} className="material-tag-chip">
-                      {tag}
-                      <button type="button" onClick={() => setEditTags(prev => prev.filter(t => t !== tag))}>×</button>
-                    </span>
-                  ))}
+                {editTags.length > 0 && (
+                  <div className="edit-tags-list">
+                    {editTags.map(tag => (
+                      <div key={tag} className="edit-tag-row">
+                        <span className="edit-tag-label">{tag}</span>
+                        <button
+                          type="button"
+                          className="edit-tag-remove"
+                          onClick={() => setEditTags(prev => prev.filter(t => t !== tag))}
+                        >
+                          הסר
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {allTags.filter(t => !editTags.includes(t)).length > 0 && (
+                  <div className="tag-suggestions" style={{ marginTop: editTags.length ? '8px' : '0' }}>
+                    <span className="tag-suggestions-label">הוסף תגית:</span>
+                    {allTags.filter(t => !editTags.includes(t)).map(t => (
+                      <button type="button" key={t} className="tag-suggestion-pill"
+                        onClick={() => setEditTags(prev => [...prev, t])}>
+                        + {t}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <div className="material-chip-row" style={{ marginTop: '8px' }}>
                   <input
                     className="material-chip-input"
                     type="text"
-                    placeholder="הקלד תגית ולחץ Enter..."
+                    placeholder="הקלד תגית חדשה ולחץ Enter..."
                     value={editTagInput}
                     onChange={e => setEditTagInput(e.target.value)}
                     onKeyDown={handleEditTagKeyDown}
                     onBlur={addEditTag}
                   />
                 </div>
-                {allTags.filter(t => !editTags.includes(t)).length > 0 && (
-                  <div className="tag-suggestions">
-                    <span className="tag-suggestions-label">תגיות קיימות:</span>
-                    {allTags.filter(t => !editTags.includes(t)).map(t => (
-                      <button type="button" key={t} className="tag-suggestion-pill"
-                        onClick={() => setEditTags(prev => [...prev, t])}>
-                        {t}
-                      </button>
-                    ))}
-                  </div>
-                )}
               </div>
               <div className="confirm-dialog-actions">
                 <button type="submit" className="btn btn-primary" disabled={saving || !editForm.name.trim() || !editForm.url.trim()}>
