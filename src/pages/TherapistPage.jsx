@@ -346,29 +346,35 @@ export default function TherapistPage() {
             </div>
           </div>
           <div className="therapist-banner-actions">
-            <button
-              className="therapist-banner-btn"
-              onClick={() => { setDetailsOpen(v => !v); setShowActionsMenu(false); }}
-            >
-              👤 פרטי המטפל {detailsOpen ? '▲' : '▼'}
-            </button>
-            <div style={{ position: 'relative' }}>
+            <div className="therapist-banner-unified">
+              {/* Kebab – external actions */}
+              <div style={{ position: 'relative' }}>
+                <button
+                  className="therapist-banner-kebab"
+                  onClick={() => { setShowActionsMenu(v => !v); }}
+                  title="פעולות נוספות"
+                >
+                  ⋮
+                </button>
+                {showActionsMenu && (
+                  <div className="therapist-actions-dropdown">
+                    <button className="therapist-actions-item" onClick={() => { setShowSummary(true); setShowActionsMenu(false); }}>
+                      📊 סיכום שעות הדרכה
+                    </button>
+                    <button className="therapist-actions-item" onClick={() => { setShowMaterials(v => !v); setShowActionsMenu(false); }}>
+                      📚 שלח חומרי עזר למטפל
+                    </button>
+                  </div>
+                )}
+              </div>
+              {/* Details toggle */}
               <button
-                className="therapist-banner-btn"
-                onClick={() => { setShowActionsMenu(v => !v); setDetailsOpen(false); }}
+                className="therapist-banner-details-btn"
+                onClick={() => { setDetailsOpen(v => !v); setShowActionsMenu(false); }}
               >
-                ⚙️
+                פרטי המטפל
+                <span className="therapist-banner-chevron">{detailsOpen ? '▲' : '▼'}</span>
               </button>
-              {showActionsMenu && (
-                <div className="therapist-actions-dropdown">
-                  <button className="therapist-actions-item" onClick={() => { setShowSummary(true); setShowActionsMenu(false); }}>
-                    📊 סיכום שעות הדרכה
-                  </button>
-                  <button className="therapist-actions-item" onClick={() => { setShowMaterials(v => !v); setShowActionsMenu(false); }}>
-                    📚 שלח חומרי עזר למטפל
-                  </button>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -381,42 +387,42 @@ export default function TherapistPage() {
                 <div className="therapist-details-grid">
                   <div className="therapist-detail-item">
                     <span className="therapist-detail-label">שם פרטי</span>
-                    <span className={`therapist-detail-value${!therapist?.firstName ? ' empty' : ''}`}>{therapist?.firstName || 'לא הוזן'}</span>
+                    <span className={`therapist-detail-value${!therapist?.firstName ? ' empty' : ''}`}>{therapist?.firstName || '—'}</span>
                   </div>
                   <div className="therapist-detail-item">
                     <span className="therapist-detail-label">שם משפחה</span>
-                    <span className={`therapist-detail-value${!therapist?.lastName ? ' empty' : ''}`}>{therapist?.lastName || 'לא הוזן'}</span>
+                    <span className={`therapist-detail-value${!therapist?.lastName ? ' empty' : ''}`}>{therapist?.lastName || '—'}</span>
                   </div>
                   <div className="therapist-detail-item">
                     <span className="therapist-detail-label">כתובת מייל</span>
-                    <span className={`therapist-detail-value${!therapist?.email ? ' empty' : ''}`}>{therapist?.email || 'לא הוזן'}</span>
+                    <span className={`therapist-detail-value${!therapist?.email ? ' empty' : ''}`}>{therapist?.email || '—'}</span>
                   </div>
                   <div className="therapist-detail-item">
                     <span className="therapist-detail-label">טלפון</span>
-                    <span className={`therapist-detail-value${!therapist?.phone ? ' empty' : ''}`}>{therapist?.phone || 'לא הוזן'}</span>
+                    <span className={`therapist-detail-value${!therapist?.phone ? ' empty' : ''}`}>{therapist?.phone || '—'}</span>
                   </div>
                   <div className="therapist-detail-item">
                     <span className="therapist-detail-label">מקצוע</span>
-                    <span className={`therapist-detail-value${!therapist?.profession ? ' empty' : ''}`}>{therapist?.profession || 'לא הוזן'}</span>
+                    <span className={`therapist-detail-value${!therapist?.profession ? ' empty' : ''}`}>{therapist?.profession || '—'}</span>
                   </div>
                   <div className="therapist-detail-item">
                     <span className="therapist-detail-label">ניסיון טיפולי</span>
-                    <span className={`therapist-detail-value${!therapist?.experience ? ' empty' : ''}`}>{therapist?.experience || 'לא הוזן'}</span>
+                    <span className={`therapist-detail-value${!therapist?.experience ? ' empty' : ''}`}>{therapist?.experience || '—'}</span>
                   </div>
                   <div className="therapist-detail-item">
                     <span className="therapist-detail-label">מסגרת טיפול</span>
-                    <span className={`therapist-detail-value${!therapist?.framework ? ' empty' : ''}`}>{therapist?.framework || 'לא הוזן'}</span>
+                    <span className={`therapist-detail-value${!therapist?.framework ? ' empty' : ''}`}>{therapist?.framework || '—'}</span>
                   </div>
                   <div className="therapist-detail-item">
                     <span className="therapist-detail-label">שעות הדרכה למפגש</span>
-                    <span className={`therapist-detail-value${!therapist?.hoursPerSession ? ' empty' : ''}`}>{therapist?.hoursPerSession || 'לא הוזן'}</span>
+                    <span className={`therapist-detail-value${!therapist?.hoursPerSession ? ' empty' : ''}`}>{therapist?.hoursPerSession || '—'}</span>
                   </div>
                 </div>
                 <div className="therapist-detail-item" style={{ marginBottom: '12px' }}>
                   <span className="therapist-detail-label">מידע כללי</span>
-                  <span className={`therapist-detail-value${!therapist?.generalInfo ? ' empty' : ''}`}>{therapist?.generalInfo || 'לא הוזן'}</span>
+                  <span className={`therapist-detail-value${!therapist?.generalInfo ? ' empty' : ''}`}>{therapist?.generalInfo || '—'}</span>
                 </div>
-                <button className="btn btn-secondary btn-sm" onClick={() => {
+                <button className="btn btn-outline-teal btn-sm" onClick={() => {
                   setDetailsForm({
                     firstName: therapist?.firstName || '', lastName: therapist?.lastName || '',
                     email: therapist?.email || '', phone: therapist?.phone || '',
