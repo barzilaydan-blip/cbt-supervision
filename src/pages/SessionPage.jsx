@@ -5,6 +5,11 @@ import {
   getDoc,
   updateDoc,
   onSnapshot,
+  collection,
+  query,
+  where,
+  orderBy,
+  getDocs,
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
 import { FOCUS_AREAS } from '../constants.js';
@@ -105,7 +110,59 @@ export default function SessionPage() {
 
   const patientId = session?.patientId;
 
+  const [patientBackground, setPatientBackground] = useState('');
+
+  useEffect(() => {
+    if (!session?.patientId) return;
+    async function loadBackground() {
+      try {
+        // Load conceptualization
+        const conceptQ = query(
+          collection(db, 'conceptualizations'),
+          where('patientId', '==', session.patientId),
+          orderBy('submittedAt', 'desc')
+        );
+        const conceptSnap = await getDocs(conceptQ);
+        let conceptText = '';
+        if (!conceptSnap.empty) {
+          const fields = conceptSnap.docs[0].data().fields || {};
+          conceptText = Object.entries(fields)
+            .filter(([, v]) => v?.trim())
+            .map(([k, v]) => `${k}: ${v}`)
+            .join('\n');
+        }
+
+        // Load previous sessions
+        const sessionsQ = query(
+          collection(db, 'sessions'),
+          where('patientId', '==', session.patientId),
+          orderBy('date', 'desc')
+        );
+        const sessionsSnap = await getDocs(sessionsQ);
+        const prevSessions = sessionsSnap.docs
+          .filter(d => d.id !== sessionId && d.data().summary)
+          .slice(0, 5)
+          .map(d => `פגישה ${d.data().date}: ${d.data().summary}`)
+          .join('\n\n');
+
+        const background = [
+          conceptText ? `פורמולציה:\n${conceptText}` : '',
+          prevSessions ? `פגישות קודמות:\n${prevSessions}` : '',
+        ].filter(Boolean).join('\n\n---\n\n');
+
+        setPatientBackground(background);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+    loadBackground();
+  }, [session?.patientId, sessionId]);
+
+  const informationField = FOCUS_AREAS.find(fa => fa.key === 'informationGathering');
+  const treatmentIssueFields = FOCUS_AREAS.filter(fa => fa.key !== 'informationGathering');
+
   const [expandedFields, setExpandedFields] = useState({ informationGathering: true });
+  const [treatmentIssuesOpen, setTreatmentIssuesOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState({});
   const [aiRecommendations, setAiRecommendations] = useState('');
   const [aiRecsLoading, setAiRecsLoading] = useState(false);
@@ -114,6 +171,14 @@ export default function SessionPage() {
 
   function toggleField(key) {
     setExpandedFields((prev) => ({ ...prev, [key]: !prev[key] }));
+  }
+
+  function toggleTreatmentIssues() {
+    const newOpen = !treatmentIssuesOpen;
+    setTreatmentIssuesOpen(newOpen);
+    const update = {};
+    treatmentIssueFields.forEach(fa => { update[fa.key] = newOpen; });
+    setExpandedFields(prev => ({ ...prev, ...update }));
   }
 
   async function handleRephrase(key) {
@@ -144,6 +209,7 @@ export default function SessionPage() {
         focusAreaLabel: 'כלל תחומי ההדרכה',
         notes: filledNotes,
         therapistProfession: therapist?.profession,
+        background: patientBackground,
       });
       setAiRecommendations(recs);
     } catch (err) {
@@ -225,15 +291,14 @@ export default function SessionPage() {
             />
           </div>
 
-          {FOCUS_AREAS.map((fa) => {
+          {/* מידע מצטבר על המטופל */}
+          {(() => {
+            const fa = informationField;
             const isOpen = !!expandedFields[fa.key];
             const hasContent = !!(notes[fa.key] && notes[fa.key].trim());
             return (
-              <div key={fa.key} className={`session-field-section${isOpen ? ' open' : ''}`}>
-                <button
-                  className="session-field-header"
-                  onClick={() => toggleField(fa.key)}
-                >
+              <div className={`session-field-section${isOpen ? ' open' : ''}`}>
+                <button className="session-field-header" onClick={() => toggleField(fa.key)}>
                   <span className="session-field-label">{fa.label}</span>
                   {hasContent && <span className="session-field-dot" title="יש תוכן" />}
                   <span className="focus-area-arrow">{isOpen ? '▲' : '▼'}</span>
@@ -246,7 +311,7 @@ export default function SessionPage() {
                       value={notes[fa.key] || ''}
                       onChange={(e) => handleNoteChange(fa.key, e.target.value)}
                       rows={4}
-                      autoFocus={fa.key === 'informationGathering'}
+                      autoFocus
                     />
                     {notes[fa.key]?.trim() && (
                       <button
@@ -262,7 +327,56 @@ export default function SessionPage() {
                 )}
               </div>
             );
-          })}
+          })()}
+
+          {/* סוגיות בטיפול */}
+          <div className={`session-group-section${treatmentIssuesOpen ? ' open' : ''}`}>
+            <button className="session-group-header" onClick={toggleTreatmentIssues}>
+              <span className="session-field-label">סוגיות בטיפול</span>
+              {treatmentIssueFields.some(fa => notes[fa.key]?.trim()) && (
+                <span className="session-field-dot" title="יש תוכן" />
+              )}
+              <span className="focus-area-arrow">{treatmentIssuesOpen ? '▲' : '▼'}</span>
+            </button>
+            {treatmentIssuesOpen && (
+              <div className="session-group-body">
+                {treatmentIssueFields.map((fa) => {
+                  const isOpen = !!expandedFields[fa.key];
+                  const hasContent = !!(notes[fa.key] && notes[fa.key].trim());
+                  return (
+                    <div key={fa.key} className={`session-field-section${isOpen ? ' open' : ''}`}>
+                      <button className="session-field-header" onClick={() => toggleField(fa.key)}>
+                        <span className="session-field-label">{fa.label}</span>
+                        {hasContent && <span className="session-field-dot" title="יש תוכן" />}
+                        <span className="focus-area-arrow">{isOpen ? '▲' : '▼'}</span>
+                      </button>
+                      {isOpen && (
+                        <div className="session-field-body">
+                          <textarea
+                            className="focus-area-textarea"
+                            placeholder={`הערות בנושא "${fa.label}"...`}
+                            value={notes[fa.key] || ''}
+                            onChange={(e) => handleNoteChange(fa.key, e.target.value)}
+                            rows={4}
+                          />
+                          {notes[fa.key]?.trim() && (
+                            <button
+                              className="btn-ai-rephrase"
+                              onClick={() => handleRephrase(fa.key)}
+                              disabled={aiLoading[fa.key]}
+                              title="נסח מחדש עם AI"
+                            >
+                              {aiLoading[fa.key] ? '⏳ מנסח...' : '✨ נסח מחדש'}
+                            </button>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
 
           <div className="session-actions">
             <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ minWidth: '120px' }}>

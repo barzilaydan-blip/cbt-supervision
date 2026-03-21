@@ -1252,6 +1252,52 @@ body {
   padding: 4px 16px 14px;
 }
 
+/* ===== SESSION GROUP (סוגיות בטיפול) ===== */
+.session-group-section {
+  border: 2px solid var(--primary-light);
+  border-radius: 12px;
+  overflow: hidden;
+  background: var(--bg-card);
+  margin-bottom: 6px;
+}
+
+.session-group-section.open {
+  border-color: var(--primary);
+}
+
+.session-group-header {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  background: var(--primary-lighter);
+  border: none;
+  cursor: pointer;
+  text-align: right;
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  transition: background 0.15s;
+}
+
+.session-group-header:hover {
+  background: var(--primary-light);
+  color: white;
+}
+
+.session-group-section.open .session-group-header {
+  background: var(--primary);
+  color: white;
+}
+
+.session-group-body {
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
 /* ===== CONCEPTUALIZATION FORM PAGE ===== */
 .form-page-wrapper {
   max-width: 720px;

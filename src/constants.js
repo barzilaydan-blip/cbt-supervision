@@ -47,7 +47,7 @@ export const CONCEPTUALIZATION_SECTIONS = [
 ];
 
 export const FOCUS_AREAS = [
-  { key: 'informationGathering', label: 'איסוף מידע' },
+  { key: 'informationGathering', label: 'מידע מצטבר על המטופל' },
   { key: 'therapeuticAlliance', label: 'קשר טיפולי' },
   { key: 'conceptualization', label: 'המשגה' },
   { key: 'motivation', label: 'מוטיבציה' },
@@ -55,7 +55,7 @@ export const FOCUS_AREAS = [
   { key: 'riskAssessment', label: 'הערכת סיכון' },
   { key: 'treatmentPlanning', label: 'תכנון טיפול' },
   { key: 'homework', label: 'שיעורי בית ומשימות' },
-  { key: 'sessionManagement', label: 'ניהול הסשן' },
+  { key: 'sessionManagement', label: 'ניהול טיפול' },
   { key: 'ethicalIssues', label: 'סוגיות אתיות' },
   { key: 'therapistWellbeing', label: 'רווחת המטפל' },
 ];
