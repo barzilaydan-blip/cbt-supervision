@@ -315,13 +315,22 @@ export default function PatientPage() {
                               <div className="focus-entry-date-label">תאריך</div>
                               <div className="focus-entry-date-value">{formatDate(s.date) || '—'}</div>
                             </div>
-                            <button
-                              className="btn btn-secondary btn-sm focus-entry-edit-btn"
-                              onClick={() => navigate(`/session/${s.id}`)}
-                              title="עריכת הדרכה"
-                            >
-                              ✏️ עריכה
-                            </button>
+                            <div style={{ display: 'flex', gap: '6px' }}>
+                              <button
+                                className="btn btn-secondary btn-sm"
+                                onClick={() => navigate(`/session/${s.id}`)}
+                                title="עריכת הדרכה"
+                              >
+                                ✏️ עריכה
+                              </button>
+                              <button
+                                className="btn btn-danger btn-sm"
+                                onClick={() => setConfirmDelete(s)}
+                                title="מחיקת הדרכה"
+                              >
+                                🗑
+                              </button>
+                            </div>
                           </div>
                           <div className="focus-entry-text">{s.notes[fa.key] || '—'}</div>
                         </div>
