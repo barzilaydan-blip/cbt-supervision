@@ -357,7 +357,7 @@ export default function TherapistPage() {
                 className="therapist-banner-btn"
                 onClick={() => { setShowActionsMenu(v => !v); setDetailsOpen(false); }}
               >
-                ⚙️ פעולות נוספות {showActionsMenu ? '▲' : '▼'}
+                ⚙️
               </button>
               {showActionsMenu && (
                 <div className="therapist-actions-dropdown">

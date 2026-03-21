@@ -54,6 +54,7 @@ export default function PatientPage() {
   const [addingSession, setAddingSession] = useState(false);
   const [showAddSessionForm, setShowAddSessionForm] = useState(false);
   const [newSessionDate, setNewSessionDate] = useState('');
+  const [showGearMenu, setShowGearMenu] = useState(false);
   const [showSessionsManager, setShowSessionsManager] = useState(false);
 
   // איסוף מידע פתוח כברירת מחדל, שאר המוקדים סגורים
@@ -252,18 +253,37 @@ export default function PatientPage() {
         <button className="btn btn-primary" onClick={handleAddSession} disabled={!patient}>
           + הוסף הדרכה
         </button>
-        <button className="btn btn-pdf" onClick={handleExportPDF} disabled={pdfLoading || sessions.length === 0 || !therapist}>
-          {pdfLoading ? '⏳ מייצא...' : '📄 ייצוא PDF'}
-        </button>
-        <button className="btn btn-concept" onClick={sendFormEmail} disabled={!patient}>
-          {emailSent
-            ? '✅ המייל נשלח למטפל!'
-            : linkCopied
-            ? '✅ הלינק הועתק (אין מייל רשום למטפל)'
-            : therapist && therapist.email
-            ? '📧 שלח טופס המשגה במייל'
-            : '🔗 העתק לינק להמשגה'}
-        </button>
+        <div style={{ position: 'relative' }}>
+          <button
+            className="btn btn-secondary btn-icon-only"
+            onClick={() => setShowGearMenu(v => !v)}
+            title="פעולות נוספות"
+          >
+            ⚙️
+          </button>
+          {showGearMenu && (
+            <div className="patient-gear-dropdown">
+              <button
+                className="patient-gear-item"
+                onClick={() => { handleExportPDF(); setShowGearMenu(false); }}
+                disabled={pdfLoading || sessions.length === 0 || !therapist}
+              >
+                {pdfLoading ? '⏳ מייצא...' : '📄 ייצוא PDF'}
+              </button>
+              <button
+                className="patient-gear-item"
+                onClick={() => { sendFormEmail(); setShowGearMenu(false); }}
+                disabled={!patient}
+              >
+                {emailSent
+                  ? '✅ המייל נשלח!'
+                  : therapist?.email
+                  ? '📧 שלח טופס המשגה'
+                  : '🔗 העתק לינק להמשגה'}
+              </button>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* מוקדי הדרכה */}
