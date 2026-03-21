@@ -102,13 +102,19 @@ export default function PatientPage() {
 
   async function handleAddSession() {
     if (!patient) return;
+    const today = getTodayString();
+    const duplicate = sessions.find(s => s.date === today);
+    if (duplicate) {
+      navigate(`/session/${duplicate.id}`);
+      return;
+    }
     setAddingSession(true);
     setError('');
     try {
       const newSession = await addDoc(collection(db, 'sessions'), {
         patientId,
         therapistId: patient.therapistId,
-        date: getTodayString(),
+        date: today,
         notes: {},
         createdAt: serverTimestamp(),
       });
