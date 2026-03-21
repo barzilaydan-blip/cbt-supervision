@@ -230,39 +230,24 @@ export default function PatientPage() {
       {error && <div className="alert alert-error">⚠️ {error}</div>}
       {emailError && <div className="alert alert-error">⚠️ {emailError}</div>}
 
-      {showAddSessionForm && (
-        <div className="add-session-inline">
-          <label className="add-session-inline-label">תאריך הדרכה:</label>
-          <input
-            type="date"
-            className="form-input"
-            value={newSessionDate}
-            onChange={(e) => setNewSessionDate(e.target.value)}
-            autoFocus
-          />
-          <button className="btn btn-primary" onClick={handleConfirmAddSession} disabled={addingSession || !newSessionDate}>
-            {addingSession ? '⏳ יוצר...' : 'צור הדרכה'}
-          </button>
-          <button className="btn btn-secondary" onClick={() => setShowAddSessionForm(false)}>
-            ביטול
-          </button>
-        </div>
-      )}
-
-      <div className="page-actions">
-        <button className="btn btn-primary" onClick={handleAddSession} disabled={!patient}>
-          + הוסף הדרכה
-        </button>
+      <div className="patient-controls-bar">
         <div style={{ position: 'relative' }}>
           <button
-            className="btn btn-secondary btn-icon-only"
+            className="patient-kebab-btn"
             onClick={() => setShowGearMenu(v => !v)}
-            title="פעולות נוספות"
+            title="פעולות"
           >
-            ⚙️
+            ⋮
           </button>
           {showGearMenu && (
             <div className="patient-gear-dropdown">
+              <button
+                className="patient-gear-item"
+                onClick={() => { handleAddSession(); setShowGearMenu(false); }}
+                disabled={!patient}
+              >
+                ➕ הוסף הדרכה
+              </button>
               <button
                 className="patient-gear-item"
                 onClick={() => { handleExportPDF(); setShowGearMenu(false); }}
@@ -285,6 +270,25 @@ export default function PatientPage() {
           )}
         </div>
       </div>
+
+      {showAddSessionForm && (
+        <div className="add-session-inline">
+          <label className="add-session-inline-label">תאריך הדרכה:</label>
+          <input
+            type="date"
+            className="form-input"
+            value={newSessionDate}
+            onChange={(e) => setNewSessionDate(e.target.value)}
+            autoFocus
+          />
+          <button className="btn btn-primary" onClick={handleConfirmAddSession} disabled={addingSession || !newSessionDate}>
+            {addingSession ? '⏳ יוצר...' : 'צור הדרכה'}
+          </button>
+          <button className="btn btn-secondary" onClick={() => setShowAddSessionForm(false)}>
+            ביטול
+          </button>
+        </div>
+      )}
 
       {/* מוקדי הדרכה */}
       {loading ? (
@@ -314,8 +318,9 @@ export default function PatientPage() {
                     ) : (
                       entries.map((s) => (
                         <div key={s.id} className="focus-area-entry">
-                          <div className="focus-entry-date">{formatDate(s.date)}</div>
-                          <div className="focus-entry-text">{s.notes[fa.key]}</div>
+                          <div className="focus-entry-date-label">תאריך</div>
+                          <div className="focus-entry-date-value">{formatDate(s.date) || '—'}</div>
+                          <div className="focus-entry-text">{s.notes[fa.key] || '—'}</div>
                         </div>
                       ))
                     )}
