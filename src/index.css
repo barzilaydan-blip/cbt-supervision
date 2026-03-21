@@ -1161,9 +1161,28 @@ body {
   margin-bottom: 2px;
 }
 
-.focus-entry-edit-btn {
-  flex-shrink: 0;
+.focus-entry-icon-btn {
+  background: none;
+  border: none;
+  padding: 2px 4px;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  border-radius: 4px;
+  transition: opacity 0.15s;
 }
+
+.focus-entry-icon-edit {
+  opacity: 0.4;
+  filter: hue-rotate(180deg);
+}
+.focus-entry-icon-edit:hover { opacity: 0.75; }
+
+.focus-entry-icon-delete {
+  opacity: 0.55;
+  filter: sepia(1) saturate(5) hue-rotate(310deg);
+}
+.focus-entry-icon-delete:hover { opacity: 0.9; }
 
 .focus-entry-date-label {
   font-size: 0.7rem;
