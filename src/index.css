@@ -929,23 +929,129 @@ body {
 
 /* ===== RESPONSIVE ===== */
 @media (max-width: 600px) {
+  /* Prevent horizontal overflow */
+  html, body {
+    overflow-x: hidden;
+  }
+
+  /* App header */
+  .app-header {
+    padding: 8px 12px;
+    gap: 8px;
+    min-width: 0;
+  }
+
+  .app-header-logo {
+    height: 36px;
+    flex-shrink: 0;
+  }
+
+  .app-header-title {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  .app-header-name {
+    font-size: 0.82rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-header-subtitle {
+    font-size: 0.7rem;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .app-header-actions {
+    flex-shrink: 0;
+  }
+
+  .app-header-home-btn,
+  .app-header-logout-btn {
+    padding: 5px 8px;
+    font-size: 0.8rem;
+  }
+
+  /* Pages */
   .page {
-    padding: 16px 12px 50px;
+    padding: 12px 10px 50px;
   }
 
   .page-header {
-    padding: 16px;
+    padding: 12px 14px;
     border-radius: var(--radius-md);
+    gap: 8px;
   }
 
   .page-header h1 {
-    font-size: 1.3rem;
+    font-size: 1.2rem;
   }
 
+  .page-header h2 {
+    font-size: 1.1rem;
+  }
+
+  .page-header .subtitle {
+    font-size: 0.82rem;
+  }
+
+  /* Therapist banner */
+  .therapist-banner-main {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 14px 16px;
+  }
+
+  .therapist-banner-main h2 {
+    font-size: 1.1rem;
+  }
+
+  .therapist-banner-actions {
+    width: 100%;
+    flex-wrap: wrap;
+  }
+
+  .therapist-banner-btn {
+    font-size: 0.82rem;
+    padding: 6px 10px;
+    flex: 1;
+    text-align: center;
+  }
+
+  /* Session actions */
+  .session-actions {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .session-actions .btn {
+    width: 100%;
+    text-align: center;
+  }
+
+  /* Session form */
   .session-form {
-    padding: 16px;
+    padding: 14px;
   }
 
+  /* Page actions */
+  .page-actions {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .page-actions .btn {
+    flex: 1;
+    min-width: 120px;
+    text-align: center;
+  }
+
+  /* General form fixes */
   .add-form-row {
     flex-direction: column;
     align-items: stretch;
@@ -961,6 +1067,12 @@ body {
     flex-direction: column;
     align-items: flex-start;
     gap: 8px;
+  }
+
+  /* Back button + header row */
+  .btn-back {
+    font-size: 0.85rem;
+    padding: 5px 10px;
   }
 }
 
