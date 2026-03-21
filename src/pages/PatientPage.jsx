@@ -310,8 +310,19 @@ export default function PatientPage() {
                     ) : (
                       entries.map((s) => (
                         <div key={s.id} className="focus-area-entry">
-                          <div className="focus-entry-date-label">תאריך</div>
-                          <div className="focus-entry-date-value">{formatDate(s.date) || '—'}</div>
+                          <div className="focus-entry-header">
+                            <div>
+                              <div className="focus-entry-date-label">תאריך</div>
+                              <div className="focus-entry-date-value">{formatDate(s.date) || '—'}</div>
+                            </div>
+                            <button
+                              className="btn btn-secondary btn-sm focus-entry-edit-btn"
+                              onClick={() => navigate(`/session/${s.id}`)}
+                              title="עריכת הדרכה"
+                            >
+                              ✏️ עריכה
+                            </button>
+                          </div>
                           <div className="focus-entry-text">{s.notes[fa.key] || '—'}</div>
                         </div>
                       ))
