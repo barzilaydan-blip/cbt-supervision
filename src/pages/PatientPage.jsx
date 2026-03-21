@@ -221,19 +221,13 @@ export default function PatientPage() {
         <button className="btn-back" onClick={() => navigate(patient ? `/therapist/${patient.therapistId}` : '/')}>
           &#x2190; חזרה
         </button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h2>{patient ? patient.name : 'טוען...'}</h2>
           <div className="subtitle">{therapist ? `מטפל: ${therapist.name}` : ''}</div>
         </div>
-      </div>
-
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
-      {emailError && <div className="alert alert-error">⚠️ {emailError}</div>}
-
-      <div className="patient-controls-bar">
         <div style={{ position: 'relative' }}>
           <button
-            className="patient-kebab-btn"
+            className="patient-header-kebab"
             onClick={() => setShowGearMenu(v => !v)}
             title="פעולות"
           >
@@ -241,13 +235,6 @@ export default function PatientPage() {
           </button>
           {showGearMenu && (
             <div className="patient-gear-dropdown">
-              <button
-                className="patient-gear-item"
-                onClick={() => { handleAddSession(); setShowGearMenu(false); }}
-                disabled={!patient}
-              >
-                ➕ הוסף הדרכה
-              </button>
               <button
                 className="patient-gear-item"
                 onClick={() => { handleExportPDF(); setShowGearMenu(false); }}
@@ -260,16 +247,19 @@ export default function PatientPage() {
                 onClick={() => { sendFormEmail(); setShowGearMenu(false); }}
                 disabled={!patient}
               >
-                {emailSent
-                  ? '✅ המייל נשלח!'
-                  : therapist?.email
-                  ? '📧 שלח טופס המשגה'
-                  : '🔗 העתק לינק להמשגה'}
+                {emailSent ? '✅ המייל נשלח!' : therapist?.email ? '📧 שלח טופס המשגה' : '🔗 העתק לינק להמשגה'}
               </button>
             </div>
           )}
         </div>
       </div>
+
+      <button className="btn-add-session" onClick={handleAddSession} disabled={!patient}>
+        + הוסף הדרכה
+      </button>
+
+      {error && <div className="alert alert-error">⚠️ {error}</div>}
+      {emailError && <div className="alert alert-error">⚠️ {emailError}</div>}
 
       {showAddSessionForm && (
         <div className="add-session-inline">
