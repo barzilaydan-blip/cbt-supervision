@@ -254,9 +254,11 @@ export default function PatientPage() {
         </div>
       </div>
 
-      <button className="btn-add-session" onClick={handleAddSession} disabled={!patient}>
-        + הוסף הדרכה
-      </button>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '0 0 4px' }}>
+        <button className="btn btn-primary btn-sm" onClick={handleAddSession} disabled={!patient}>
+          + הוסף הדרכה
+        </button>
+      </div>
 
       {error && <div className="alert alert-error">⚠️ {error}</div>}
       {emailError && <div className="alert alert-error">⚠️ {emailError}</div>}

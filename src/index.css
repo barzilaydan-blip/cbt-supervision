@@ -1276,26 +1276,6 @@ body {
 }
 .patient-header-kebab:hover { background: rgba(255,255,255,0.28); }
 
-.btn-add-session {
-  display: block;
-  margin: 10px 24px 4px auto;
-  padding: 5px 10px;
-  background: none;
-  border: none;
-  color: var(--primary);
-  font-size: 0.9rem;
-  font-weight: 500;
-  cursor: pointer;
-  opacity: 0.75;
-  transition: opacity 0.2s;
-}
-.btn-add-session:hover:not(:disabled) {
-  opacity: 1;
-}
-.btn-add-session:disabled {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
 
 .patient-gear-dropdown {
   position: absolute;
