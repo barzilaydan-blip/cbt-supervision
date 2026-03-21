@@ -1466,6 +1466,36 @@ body {
 
 .material-tag-chip button:hover { opacity: 1; }
 
+/* Tag suggestions row (inside add/edit form) */
+.tag-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag-suggestions-label {
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.tag-suggestion-pill {
+  padding: 3px 10px;
+  background: #f0f1fb;
+  color: #4f46e5;
+  border: 1px dashed #a5b4fc;
+  border-radius: 20px;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+
+.tag-suggestion-pill:hover {
+  background: #e0e3f8;
+}
+
 .material-chip-input {
   flex: 1;
   min-width: 120px;

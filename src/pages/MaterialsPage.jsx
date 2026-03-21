@@ -297,6 +297,17 @@ export default function MaterialsPage() {
                   onBlur={addFormTag}
                 />
               </div>
+              {allTags.filter(t => !formTags.includes(t)).length > 0 && (
+                <div className="tag-suggestions">
+                  <span className="tag-suggestions-label">תגיות קיימות:</span>
+                  {allTags.filter(t => !formTags.includes(t)).map(t => (
+                    <button type="button" key={t} className="tag-suggestion-pill"
+                      onClick={() => setFormTags(prev => [...prev, t])}>
+                      {t}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             <button type="submit" className="btn btn-primary"
               disabled={adding || !form.name.trim() || !form.url.trim()}>
@@ -438,6 +449,17 @@ export default function MaterialsPage() {
                     onBlur={addEditTag}
                   />
                 </div>
+                {allTags.filter(t => !editTags.includes(t)).length > 0 && (
+                  <div className="tag-suggestions">
+                    <span className="tag-suggestions-label">תגיות קיימות:</span>
+                    {allTags.filter(t => !editTags.includes(t)).map(t => (
+                      <button type="button" key={t} className="tag-suggestion-pill"
+                        onClick={() => setEditTags(prev => [...prev, t])}>
+                        {t}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <div className="confirm-dialog-actions">
                 <button type="submit" className="btn btn-primary" disabled={saving || !editForm.name.trim() || !editForm.url.trim()}>
