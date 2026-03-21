@@ -132,6 +132,8 @@ export default function MaterialsPage() {
     );
   }
 
+  const allTags = [...new Set(materials.flatMap(m => m.tags || []))].sort();
+
   const isFiltering = search.trim() !== '' || activeTags.length > 0;
 
   const filtered = materials.filter(m => {
@@ -176,7 +178,7 @@ export default function MaterialsPage() {
           <div className="card-actions">
             <button
               className="material-eye-btn"
-              onClick={() => setOpenDesc(openDesc === m.id ? null : m.id)}
+              onClick={e => { e.currentTarget.blur(); setOpenDesc(openDesc === m.id ? null : m.id); }}
               title="תיאור"
             >
               👁
@@ -306,20 +308,36 @@ export default function MaterialsPage() {
 
       {/* Search row */}
       {!loading && materials.length > 0 && (
-        <div className="materials-search-row">
-          <input
-            className="materials-search-input"
-            type="text"
-            placeholder="🔍 חיפוש חומרים..."
-            value={search}
-            onChange={e => setSearch(e.target.value)}
-          />
-          {activeTags.map(tag => (
-            <button key={tag} className="active-tag-pill" onClick={() => toggleActiveTag(tag)}>
-              {tag} ×
-            </button>
-          ))}
-        </div>
+        <>
+          <div className="materials-search-row">
+            <input
+              className="materials-search-input"
+              type="text"
+              placeholder="🔍 חיפוש חומרים..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+            />
+            {activeTags.map(tag => (
+              <button key={tag} className="active-tag-pill" onClick={() => toggleActiveTag(tag)}>
+                {tag} ×
+              </button>
+            ))}
+          </div>
+          {allTags.length > 0 && (
+            <div className="all-tags-row">
+              {allTags.map(tag => (
+                <button
+                  key={tag}
+                  className={`material-tag-pill${activeTags.includes(tag) ? ' active' : ''}`}
+                  onClick={() => toggleActiveTag(tag)}
+                  title={activeTags.includes(tag) ? 'הסר פילטר' : 'סנן לפי תגית'}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+        </>
       )}
 
       {loading ? (
