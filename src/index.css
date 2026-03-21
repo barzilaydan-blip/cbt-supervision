@@ -1252,6 +1252,33 @@ body {
   padding: 4px 16px 14px;
 }
 
+/* ===== ADD SESSION INLINE FORM ===== */
+.add-session-inline {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: var(--bg-card);
+  border: 1px solid var(--primary-light);
+  border-radius: var(--radius-md);
+  padding: 14px 18px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+
+.add-session-inline-label {
+  font-weight: 600;
+  color: var(--text-main);
+  font-size: 0.95rem;
+  white-space: nowrap;
+}
+
+@media (max-width: 600px) {
+  .add-session-inline {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}
+
 /* ===== SESSION GROUP (סוגיות בטיפול) ===== */
 .session-group-section {
   border: 2px solid var(--primary-light);

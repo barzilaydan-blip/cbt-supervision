@@ -52,6 +52,8 @@ export default function PatientPage() {
   const [error, setError] = useState('');
   const [pdfLoading, setPdfLoading] = useState(false);
   const [addingSession, setAddingSession] = useState(false);
+  const [showAddSessionForm, setShowAddSessionForm] = useState(false);
+  const [newSessionDate, setNewSessionDate] = useState('');
   const [showSessionsManager, setShowSessionsManager] = useState(false);
 
   // איסוף מידע פתוח כברירת מחדל, שאר המוקדים סגורים
@@ -100,11 +102,16 @@ export default function PatientPage() {
     return unsub;
   }, [patientId]);
 
-  async function handleAddSession() {
-    if (!patient) return;
-    const today = getTodayString();
-    const duplicate = sessions.find(s => s.date === today);
+  function handleAddSession() {
+    setNewSessionDate(getTodayString());
+    setShowAddSessionForm(true);
+  }
+
+  async function handleConfirmAddSession() {
+    if (!patient || !newSessionDate) return;
+    const duplicate = sessions.find(s => s.date === newSessionDate);
     if (duplicate) {
+      setShowAddSessionForm(false);
       navigate(`/session/${duplicate.id}`);
       return;
     }
@@ -114,14 +121,16 @@ export default function PatientPage() {
       const newSession = await addDoc(collection(db, 'sessions'), {
         patientId,
         therapistId: patient.therapistId,
-        date: today,
+        date: newSessionDate,
         notes: {},
         createdAt: serverTimestamp(),
       });
+      setShowAddSessionForm(false);
       navigate(`/session/${newSession.id}`);
     } catch (err) {
       console.error(err);
       setError('שגיאה ביצירת הדרכה חדשה. נסה שנית.');
+    } finally {
       setAddingSession(false);
     }
   }
@@ -220,9 +229,28 @@ export default function PatientPage() {
       {error && <div className="alert alert-error">⚠️ {error}</div>}
       {emailError && <div className="alert alert-error">⚠️ {emailError}</div>}
 
+      {showAddSessionForm && (
+        <div className="add-session-inline">
+          <label className="add-session-inline-label">תאריך הדרכה:</label>
+          <input
+            type="date"
+            className="form-input"
+            value={newSessionDate}
+            onChange={(e) => setNewSessionDate(e.target.value)}
+            autoFocus
+          />
+          <button className="btn btn-primary" onClick={handleConfirmAddSession} disabled={addingSession || !newSessionDate}>
+            {addingSession ? '⏳ יוצר...' : 'צור הדרכה'}
+          </button>
+          <button className="btn btn-secondary" onClick={() => setShowAddSessionForm(false)}>
+            ביטול
+          </button>
+        </div>
+      )}
+
       <div className="page-actions">
-        <button className="btn btn-primary" onClick={handleAddSession} disabled={addingSession || !patient}>
-          {addingSession ? 'יוצר...' : '+ הוסף הדרכה'}
+        <button className="btn btn-primary" onClick={handleAddSession} disabled={!patient}>
+          + הוסף הדרכה
         </button>
         <button className="btn btn-pdf" onClick={handleExportPDF} disabled={pdfLoading || sessions.length === 0 || !therapist}>
           {pdfLoading ? '⏳ מייצא...' : '📄 ייצוא PDF'}
