@@ -16,6 +16,7 @@ export default function MaterialsPage() {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [showKebab, setShowKebab] = useState(false);
 
   useEffect(() => {
     const q = query(collection(db, 'materials'), orderBy('createdAt', 'asc'));
@@ -66,9 +67,34 @@ export default function MaterialsPage() {
     <div className="page">
       <div className="page-header">
         <button className="btn-back" onClick={() => navigate('/')}>&#x2190; חזרה</button>
-        <div>
+        <div style={{ flex: 1 }}>
           <h2>📚 ספריית חומרים</h2>
           <div className="subtitle">ניהול חומרי עזר לטיפול</div>
+        </div>
+        <div style={{ position: 'relative' }}>
+          <button
+            className="patient-header-kebab"
+            onClick={() => setShowKebab(v => !v)}
+            title="תפריט"
+          >
+            ⋮
+          </button>
+          {showKebab && (
+            <div className="patient-gear-dropdown">
+              <button
+                className="patient-gear-item"
+                onClick={() => { navigate('/materials'); setShowKebab(false); }}
+              >
+                📚 ספריית חומרים
+              </button>
+              <button
+                className="patient-gear-item"
+                onClick={() => { navigate('/'); setShowKebab(false); }}
+              >
+                👥 מטפלים
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

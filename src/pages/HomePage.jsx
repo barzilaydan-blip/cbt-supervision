@@ -129,7 +129,7 @@ export default function HomePage() {
   return (
     <div className="page">
       <div className="page-header">
-        <div>
+        <div style={{ flex: 1 }}>
           <h1>מעקב הדרכות CBT</h1>
           <div className="subtitle">מערכת לניהול הדרכות סופרוויזיה</div>
         </div>
