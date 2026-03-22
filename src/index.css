@@ -1477,8 +1477,11 @@ body {
 .material-tag-pill:hover { background: #d0d3f5; }
 
 .material-tag-pill.active {
-  background: var(--accent);
-  color: #fff;
+  background: #fff;
+  color: #4338ca;
+  border: 2px solid #4338ca;
+  font-weight: 700;
+  padding: 1px 8px;
 }
 
 /* Chip input (add form) */
