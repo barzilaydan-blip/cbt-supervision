@@ -92,6 +92,9 @@ export default function SupervisionSessionPage() {
   const [saved, setSaved] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
 
+  // { [patientId]: sessionId } — existing sessions on the current date
+  const [existingSessionIds, setExistingSessionIds] = useState({});
+
   // Session summary
   const [sessionSummary, setSessionSummary] = useState('');
   const [summaryLoading, setSummaryLoading] = useState(false);
@@ -136,7 +139,48 @@ export default function SupervisionSessionPage() {
     return () => { cancelled = true; };
   }, [therapistId, navigate]);
 
-  // ─── Load last session per patient (on demand) ────────────────────────────────
+  // ─── When date changes reset cached last-sessions so they're re-fetched with correct filter ──
+  useEffect(() => {
+    setLastSessions({});
+    setExistingSessionIds({});
+  }, [date]);
+
+  // ─── Check for existing sessions on the current date; pre-fill drafts ─────────
+  useEffect(() => {
+    if (!patients.length) return;
+    const newIds = {};
+    Promise.all(patients.map(async (p) => {
+      const snap = await getDocs(
+        query(collection(db, 'sessions'), where('patientId', '==', p.id), where('date', '==', date))
+      );
+      if (!snap.empty) {
+        const sessionDoc = snap.docs[0];
+        newIds[p.id] = sessionDoc.id;
+        // Pre-populate draft only if the draft is currently empty
+        setDraftNotes(prev => {
+          const cur = prev[p.id];
+          const hasMeaningful = cur && (cur.report?.trim() || cur.issues?.trim() || cur.recommendations?.trim());
+          if (hasMeaningful) return prev;
+          const n = sessionDoc.data().notes || {};
+          return {
+            ...prev,
+            [p.id]: {
+              report: n.report || '',
+              issues: n.issues || '',
+              recommendations: n.recommendations || '',
+              danger: n.danger || false,
+              dangerNote: n.dangerNote || '',
+              tags: { ...(n.tags || {}) },
+            },
+          };
+        });
+      } else {
+        newIds[p.id] = null;
+      }
+    })).then(() => setExistingSessionIds(newIds)).catch(console.error);
+  }, [date, patients]);
+
+  // ─── Load last session per patient (on demand, excludes current date) ─────────
   useEffect(() => {
     if (!selectedPatientId || lastSessions[selectedPatientId] !== undefined) return;
     const pid = selectedPatientId;
@@ -145,7 +189,7 @@ export default function SupervisionSessionPage() {
       .then(snap => {
         const docs = snap.docs
           .map(d => ({ id: d.id, ...d.data() }))
-          .filter(d => d.date)
+          .filter(d => d.date && d.date < date)   // exclude today's session
           .sort((a, b) => b.date.localeCompare(a.date));
         setLastSessions(prev => ({ ...prev, [pid]: docs.length > 0 ? docs[0] : null }));
       })
@@ -202,18 +246,24 @@ export default function SupervisionSessionPage() {
       await Promise.all(
         patients.filter(p => hasDraft(p.id)).map(p => {
           const d = draftNotes[p.id] || emptyDraft();
+          const notes = {
+            report: d.report || '',
+            issues: d.issues || '',
+            recommendations: d.recommendations || '',
+            danger: d.danger || false,
+            dangerNote: d.dangerNote || '',
+            tags: d.tags || {},
+          };
+          const existingId = existingSessionIds[p.id];
+          if (existingId) {
+            // Session already exists on this date — update it
+            return updateDoc(doc(db, 'sessions', existingId), { notes });
+          }
           return addDoc(collection(db, 'sessions'), {
             patientId: p.id, therapistId,
             supervisionSessionId: supSessionRef.id,
             date,
-            notes: {
-              report: d.report || '',
-              issues: d.issues || '',
-              recommendations: d.recommendations || '',
-              danger: d.danger || false,
-              dangerNote: d.dangerNote || '',
-              tags: d.tags || {},
-            },
+            notes,
             createdAt: serverTimestamp(),
           });
         })
