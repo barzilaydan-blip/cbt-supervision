@@ -145,6 +145,11 @@ export default function TherapistPage() {
   const [showSummary, setShowSummary] = useState(false);
   const [showActionsMenu, setShowActionsMenu] = useState(false);
 
+  // Patient profile editing
+  const [editingProfilePatient, setEditingProfilePatient] = useState(null);
+  const [profileDraft, setProfileDraft] = useState('');
+  const [savingProfile, setSavingProfile] = useState(false);
+
   // Materials section
   const [materials, setMaterials] = useState([]);
   const [showMaterials, setShowMaterials] = useState(false);
@@ -327,6 +332,19 @@ export default function TherapistPage() {
     if (parts.length >= 2) return parts[0][0] + parts[1][0];
     return name[0] || '?';
   };
+
+  async function handleSaveProfile() {
+    if (!editingProfilePatient) return;
+    setSavingProfile(true);
+    try {
+      await updateDoc(doc(db, 'patients', editingProfilePatient.id), { background: profileDraft });
+      setEditingProfilePatient(null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSavingProfile(false);
+    }
+  }
 
   return (
     <div className="page">
@@ -551,6 +569,22 @@ export default function TherapistPage() {
       {error && <div className="alert alert-error">⚠️ {error}</div>}
 
       <div className="section">
+        <div className="sup-session-launch-banner">
+          <div className="sup-session-launch-info">
+            <span className="sup-session-launch-icon">🎯</span>
+            <div>
+              <div className="sup-session-launch-title">מפגש הדרכה</div>
+              <div className="sup-session-launch-sub">כתיבה מהירה עבור כל המטופלים במפגש אחד</div>
+            </div>
+          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => navigate(`/supervision-session/${therapistId}`)}
+          >
+            ▶ התחל מפגש הדרכה
+          </button>
+        </div>
+
         <div className="section-title">
           🧑‍⚕️ מטופלים
           <button
@@ -616,6 +650,12 @@ export default function TherapistPage() {
                 </div>
                 <div className="card-actions" onClick={(e) => e.stopPropagation()}>
                   <button
+                    className="btn btn-secondary btn-sm"
+                    onClick={() => { setProfileDraft(p.background || ''); setEditingProfilePatient(p); }}
+                  >
+                    📋 פרופיל
+                  </button>
+                  <button
                     className="btn btn-danger btn-sm"
                     onClick={() => setConfirmDelete(p)}
                   >
@@ -634,6 +674,32 @@ export default function TherapistPage() {
           onConfirm={() => handleDeletePatient(confirmDelete)}
           onCancel={() => setConfirmDelete(null)}
         />
+      )}
+
+      {editingProfilePatient && (
+        <div className="confirm-overlay" onClick={() => setEditingProfilePatient(null)}>
+          <div className="confirm-dialog" style={{ maxWidth: 520, width: '90%' }} onClick={e => e.stopPropagation()}>
+            <h3>📋 פרופיל מטופל — {editingProfilePatient.name}</h3>
+            <p style={{ color: '#6b7280', fontSize: '0.88rem', marginTop: 0 }}>
+              מידע זה יוצג בכל מפגש הדרכה עתידי כ"רקע קבוע".
+            </p>
+            <textarea
+              className="sup-profile-textarea"
+              style={{ width: '100%', minHeight: 160, marginBottom: 12 }}
+              value={profileDraft}
+              onChange={e => setProfileDraft(e.target.value)}
+              placeholder="אבחנה, מטרות טיפוליות, רקע רלוונטי..."
+            />
+            <div className="confirm-dialog-actions">
+              <button className="btn btn-primary" onClick={handleSaveProfile} disabled={savingProfile}>
+                {savingProfile ? '⏳ שומר...' : '💾 שמור'}
+              </button>
+              <button className="btn btn-secondary" onClick={() => setEditingProfilePatient(null)}>
+                ביטול
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {showSummary && (

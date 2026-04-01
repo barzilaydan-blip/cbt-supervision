@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useNavigate } from 'react-router-dom';
 import {
   collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, orderBy, query,
@@ -27,6 +28,13 @@ export default function MaterialsPage() {
   const [editTags, setEditTags] = useState([]);
   const [editTagInput, setEditTagInput] = useState('');
   const [saving, setSaving] = useState(false);
+  const [confirmDeleteTag, setConfirmDeleteTag] = useState(null);
+  const [showAiPanel, setShowAiPanel] = useState(false);
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [aiResult, setAiResult] = useState('');
+  const [aiMeta, setAiMeta] = useState(null);
+  const [aiStep, setAiStep] = useState('idle'); // idle | generating | preview
+  const [aiError, setAiError] = useState('');
 
   useEffect(() => {
     const q = query(collection(db, 'materials'), orderBy('createdAt', 'asc'));
@@ -108,7 +116,7 @@ export default function MaterialsPage() {
     e.preventDefault();
     const name = editForm.name.trim();
     const url = editForm.url.trim();
-    if (!name || !url) return;
+    if (!name) return;
     setSaving(true);
     setError('');
     try {
@@ -130,6 +138,103 @@ export default function MaterialsPage() {
     setActiveTags(prev =>
       prev.includes(tag) ? prev.filter(t => t !== tag) : [...prev, tag]
     );
+  }
+
+  async function handleDeleteTag(tag) {
+    setConfirmDeleteTag(null);
+    const affected = materials.filter(m => m.tags?.includes(tag));
+    try {
+      await Promise.all(affected.map(m =>
+        updateDoc(doc(db, 'materials', m.id), {
+          tags: m.tags.filter(t => t !== tag),
+        })
+      ));
+      setActiveTags(prev => prev.filter(t => t !== tag));
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה במחיקת התגית.');
+    }
+  }
+
+  async function handleGenerate() {
+    if (!aiPrompt.trim()) return;
+    setAiStep('generating');
+    setAiError('');
+    try {
+      const { default: Anthropic } = await import('@anthropic-ai/sdk');
+      const client = new Anthropic({
+        apiKey: import.meta.env.VITE_ANTHROPIC_API_KEY,
+        dangerouslyAllowBrowser: true,
+      });
+      const msg = await client.messages.create({
+        model: 'claude-opus-4-6',
+        max_tokens: 4096,
+        messages: [{
+          role: 'user',
+          content: `אתה פסיכולוג CBT מנוסה שיוצר חומרים טיפוליים בעברית.
+בקשה: ${aiPrompt}
+
+הנחיות עיצוב:
+- השתמש בכותרות ברורות (עם ===, ---, או **)
+- השתמש בטבלאות כשמתאים (למשל: עמודות של מצב/מחשבה/תחושה/תגובה)
+- השתמש ברשימות ממוספרות או בנקודות
+- הוסף שאלות מובנות ומקומות לכתיבה (_____)
+- הפוך את החומר לשמיש ומושך ויזואלית
+- כתוב בעברית ברורה ומקצועית
+
+בסוף הוסף בלוק JSON כזה בדיוק (אל תשנה את המבנה):
+===JSON===
+{"suggestedName": "...", "suggestedCategory": "...", "suggestedTags": [...]}
+===END===`,
+        }],
+      });
+      const fullText = msg.content[0].text;
+      const jsonMatch = fullText.match(/===JSON===\s*([\s\S]*?)\s*===END===/);
+      let meta = { suggestedName: '', suggestedCategory: 'דפי עבודה', suggestedTags: [] };
+      let mainText = fullText;
+      if (jsonMatch) {
+        try { meta = JSON.parse(jsonMatch[1]); } catch {}
+        mainText = fullText.replace(/===JSON===[\s\S]*?===END===/g, '').trim();
+      }
+      setAiResult(mainText);
+      setAiMeta({
+        name: meta.suggestedName || '',
+        category: MATERIAL_CATEGORIES.includes(meta.suggestedCategory) ? meta.suggestedCategory : 'דפי עבודה',
+        tags: Array.isArray(meta.suggestedTags) ? meta.suggestedTags : [],
+      });
+      setAiStep('preview');
+    } catch (err) {
+      console.error(err);
+      setAiError('שגיאה ביצירת החומר. נסה שנית.');
+      setAiStep('idle');
+    }
+  }
+
+  async function handleAiSave() {
+    if (!aiMeta?.name?.trim()) return;
+    setSaving(true);
+    setAiError('');
+    try {
+      await addDoc(collection(db, 'materials'), {
+        name: aiMeta.name.trim(),
+        url: '',
+        category: aiMeta.category,
+        description: aiResult,
+        tags: aiMeta.tags,
+        createdAt: serverTimestamp(),
+      });
+      setShowAiPanel(false);
+      setAiPrompt('');
+      setAiResult('');
+      setAiMeta(null);
+      setAiStep('idle');
+      setAiError('');
+    } catch (err) {
+      console.error(err);
+      setAiError('שגיאה בשמירה.');
+    } finally {
+      setSaving(false);
+    }
   }
 
   const allTags = [...new Set(materials.flatMap(m => m.tags || []))].sort();
@@ -157,9 +262,11 @@ export default function MaterialsPage() {
         <div className="card">
           <div className="card-body">
             <div className="card-title">{m.name}</div>
-            <a href={m.url} target="_blank" rel="noopener noreferrer" className="card-meta">
-              🔗 פתח קישור
-            </a>
+            {m.url && (
+              <a href={m.url} target="_blank" rel="noopener noreferrer" className="card-meta">
+                🔗 פתח קישור
+              </a>
+            )}
             {m.tags?.length > 0 && (
               <div className="material-tags-row">
                 {m.tags.map(tag => (
@@ -238,10 +345,100 @@ export default function MaterialsPage() {
       {error && <div className="alert alert-error">⚠️ {error}</div>}
 
       <div className="page-actions">
-        <button className="btn btn-primary" onClick={() => setShowAddForm(v => !v)}>
+        <button className="btn btn-primary" onClick={() => { setShowAddForm(v => !v); setShowAiPanel(false); }}>
           {showAddForm ? '✕ סגור' : '+ הוסף חומר'}
         </button>
+        <button className="btn btn-secondary" onClick={() => { setShowAiPanel(v => !v); setShowAddForm(false); setAiStep('idle'); setAiError(''); }}>
+          {showAiPanel ? '✕ סגור' : '🤖 צור עם AI'}
+        </button>
       </div>
+
+      {showAiPanel && (
+        <div className="add-form ai-panel">
+          <div className="ai-panel-title">🤖 יצירת חומר עם Claude</div>
+          {aiStep === 'idle' && (
+            <>
+              <div className="form-group">
+                <label>תאר מה תרצה ליצור</label>
+                <textarea
+                  className="form-input"
+                  rows={3}
+                  placeholder="למשל: צור דף עבודה לזיהוי מחשבות אוטומטיות שליליות..."
+                  value={aiPrompt}
+                  onChange={e => setAiPrompt(e.target.value)}
+                  autoFocus
+                />
+              </div>
+              {aiError && <div className="alert alert-error">⚠️ {aiError}</div>}
+              <button
+                className="btn btn-primary"
+                onClick={handleGenerate}
+                disabled={!aiPrompt.trim()}
+              >
+                ▶ צור
+              </button>
+            </>
+          )}
+          {aiStep === 'generating' && (
+            <div className="loading-wrapper">
+              <div className="spinner" />
+              <span>Claude יוצר את החומר...</span>
+            </div>
+          )}
+          {aiStep === 'preview' && aiMeta && (
+            <>
+              <div className="form-group">
+                <label>תוצאה שנוצרה</label>
+                <div className="ai-result-preview">
+                  <ReactMarkdown>{aiResult}</ReactMarkdown>
+                </div>
+              </div>
+              <div className="form-group">
+                <label>שם החומר</label>
+                <input
+                  className="form-input"
+                  type="text"
+                  value={aiMeta.name}
+                  onChange={e => setAiMeta(m => ({ ...m, name: e.target.value }))}
+                />
+              </div>
+              <div className="form-group">
+                <label>קטגוריה</label>
+                <select
+                  className="form-input"
+                  value={aiMeta.category}
+                  onChange={e => setAiMeta(m => ({ ...m, category: e.target.value }))}
+                >
+                  {MATERIAL_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                </select>
+              </div>
+              <div className="form-group">
+                <label>תגיות</label>
+                <div className="material-chip-row">
+                  {aiMeta.tags.map(tag => (
+                    <span key={tag} className="material-tag-chip">
+                      {tag}
+                      <button type="button" onClick={() => setAiMeta(m => ({ ...m, tags: m.tags.filter(t => t !== tag) }))}>×</button>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {aiError && <div className="alert alert-error">⚠️ {aiError}</div>}
+              <div className="ai-panel-actions">
+                <button className="btn btn-primary" onClick={handleAiSave} disabled={saving || !aiMeta.name.trim()}>
+                  {saving ? 'שומר...' : '✅ שמור לספרייה'}
+                </button>
+                <button className="btn btn-secondary" onClick={() => { setAiStep('idle'); setAiError(''); }}>
+                  🔄 נסה שוב
+                </button>
+                <button className="btn btn-secondary" onClick={() => { setShowAiPanel(false); setAiStep('idle'); setAiError(''); }}>
+                  ✕ בטל
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
 
       {showAddForm && (
         <div className="add-form">
@@ -337,14 +534,22 @@ export default function MaterialsPage() {
           {allTags.length > 0 && (
             <div className="all-tags-row">
               {allTags.map(tag => (
-                <button
-                  key={tag}
-                  className={`material-tag-pill${activeTags.includes(tag) ? ' active' : ''}`}
-                  onClick={() => toggleActiveTag(tag)}
-                  title={activeTags.includes(tag) ? 'הסר פילטר' : 'סנן לפי תגית'}
-                >
-                  {tag}
-                </button>
+                <span key={tag} className={`material-tag-pill-wrap${activeTags.includes(tag) ? ' active' : ''}`}>
+                  <button
+                    className="material-tag-pill-label"
+                    onClick={() => toggleActiveTag(tag)}
+                    title={activeTags.includes(tag) ? 'הסר פילטר' : 'סנן לפי תגית'}
+                  >
+                    {tag}
+                  </button>
+                  <button
+                    className="material-tag-pill-delete"
+                    onClick={() => setConfirmDeleteTag(tag)}
+                    title="מחק תגית מהמערכת"
+                  >
+                    ×
+                  </button>
+                </span>
               ))}
             </div>
           )}
@@ -389,6 +594,21 @@ export default function MaterialsPage() {
             <div className="confirm-dialog-actions">
               <button className="btn btn-danger" onClick={() => handleDelete(confirmDelete)}>מחק</button>
               <button className="btn btn-secondary" onClick={() => setConfirmDelete(null)}>ביטול</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmDeleteTag && (
+        <div className="confirm-overlay">
+          <div className="confirm-dialog">
+            <h3>מחיקת תגית</h3>
+            <p>האם למחוק את התגית <strong>"{confirmDeleteTag}"</strong> מכל החומרים?<br/>
+              ({materials.filter(m => m.tags?.includes(confirmDeleteTag)).length} חומרים יושפעו)
+            </p>
+            <div className="confirm-dialog-actions">
+              <button className="btn btn-danger" onClick={() => handleDeleteTag(confirmDeleteTag)}>מחק</button>
+              <button className="btn btn-secondary" onClick={() => setConfirmDeleteTag(null)}>ביטול</button>
             </div>
           </div>
         </div>
@@ -472,7 +692,7 @@ export default function MaterialsPage() {
                 </div>
               </div>
               <div className="confirm-dialog-actions">
-                <button type="submit" className="btn btn-primary" disabled={saving || !editForm.name.trim() || !editForm.url.trim()}>
+                <button type="submit" className="btn btn-primary" disabled={saving || !editForm.name.trim()}>
                   {saving ? 'שומר...' : 'שמור'}
                 </button>
                 <button type="button" className="btn btn-secondary" onClick={() => setEditingMaterial(null)}>ביטול</button>

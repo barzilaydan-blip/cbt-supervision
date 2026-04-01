@@ -6,6 +6,7 @@ import PatientPage from './pages/PatientPage.jsx';
 import SessionPage from './pages/SessionPage.jsx';
 import ConceptualizationFormPage from './pages/ConceptualizationFormPage.jsx';
 import MaterialsPage from './pages/MaterialsPage.jsx';
+import SupervisionSessionPage from './pages/SupervisionSessionPage.jsx';
 import { AuthProvider, useAuth } from './AuthContext.jsx';
 
 function AppHeader() {
@@ -109,6 +110,7 @@ function AppContent() {
         <Route path="/session/:sessionId" element={<SessionPage />} />
         <Route path="/form/:patientId" element={<ConceptualizationFormPage />} />
         <Route path="/materials" element={<MaterialsPage />} />
+        <Route path="/supervision-session/:therapistId" element={<SupervisionSessionPage />} />
       </Routes>
     </div>
   );

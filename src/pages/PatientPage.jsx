@@ -254,121 +254,110 @@ export default function PatientPage() {
         </div>
       </div>
 
-      <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '0 0 4px' }}>
-        <button className="btn btn-primary btn-sm" onClick={handleAddSession} disabled={!patient}>
-          + הוסף הדרכה
-        </button>
-      </div>
-
       {error && <div className="alert alert-error">⚠️ {error}</div>}
       {emailError && <div className="alert alert-error">⚠️ {emailError}</div>}
 
-      {showAddSessionForm && (
-        <div className="add-session-inline">
-          <label className="add-session-inline-label">תאריך הדרכה:</label>
-          <input
-            type="date"
-            className="form-input"
-            value={newSessionDate}
-            onChange={(e) => setNewSessionDate(e.target.value)}
-            autoFocus
-          />
-          <button className="btn btn-primary" onClick={handleConfirmAddSession} disabled={addingSession || !newSessionDate}>
-            {addingSession ? '⏳ יוצר...' : 'צור הדרכה'}
-          </button>
-          <button className="btn btn-secondary" onClick={() => setShowAddSessionForm(false)}>
-            ביטול
-          </button>
-        </div>
-      )}
-
-      {/* מוקדי הדרכה */}
+      {/* היסטוריית הדרכות כרונולוגית */}
       {loading ? (
         <div className="loading-wrapper"><div className="spinner" /><span>טוען נתונים...</span></div>
+      ) : sessions.length === 0 ? (
+        <div className="empty-state">
+          <div className="empty-state-icon">📋</div>
+          <p>אין הדרכות עדיין.</p>
+        </div>
       ) : (
-        <div className="focus-areas-list">
-          {FOCUS_AREAS.map((fa) => {
-            const isOpen = !!expandedAreas[fa.key];
-            const entries = sessionsForArea(fa.key);
-            const isInfoGathering = fa.key === 'informationGathering';
+        <div className="patient-sessions-timeline">
+          {[...sessions]
+            .filter(s => s.date)
+            .sort((a, b) => a.date.localeCompare(b.date))
+            .map((s, idx) => {
+              const n = s.notes || {};
+              const isNew = !!(n.report || n.issues || n.recommendations);
+              const newFields = [
+                { label: 'דיווח המודרך',          value: n.report },
+                { label: 'סוגיות ודילמות',         value: n.issues },
+                { label: 'המלצות וצעדים הבאים',   value: n.recommendations },
+              ];
+              const legacyFields = Object.entries(n)
+                .filter(([k, v]) => typeof v === 'string' && v.trim() && !['report','issues','recommendations','dangerNote'].includes(k));
+              const tags = n.tags ? Object.entries(n.tags).filter(([,v]) => v).map(([k]) => k) : [];
+              const tagLabels = { treatmentProcess:'תהליך טיפול', treatmentPlanning:'תכנון טיפול', homework:'שיעורי בית', conceptualization:'המשגה' };
+              const isExpanded = !!expandedAreas[s.id];
 
-            return (
-              <div key={fa.key} className={`focus-area-section${isOpen ? ' open' : ''}`}>
-                <button
-                  className="focus-area-header"
-                  onClick={() => toggleArea(fa.key)}
-                >
-                  <span className="focus-area-label">{fa.label}</span>
-                  <span className="focus-area-count">{entries.length > 0 ? `${entries.length} הדרכות` : 'אין תוכן'}</span>
-                  <span className="focus-area-arrow">{isOpen ? '▲' : '▼'}</span>
-                </button>
-
-                {isOpen && (
-                  <div className="focus-area-content">
-                    {entries.length === 0 ? (
-                      <div className="focus-area-empty">אין תוכן עדיין בנושא זה.</div>
-                    ) : (
-                      entries.map((s) => (
-                        <div key={s.id} className="focus-area-entry">
-                          <div className="focus-entry-header">
-                            <div>
-                              <div className="focus-entry-date-label">תאריך</div>
-                              <div className="focus-entry-date-value">{formatDate(s.date) || '—'}</div>
-                            </div>
-                            <div style={{ display: 'flex', gap: '4px' }}>
-                              <button
-                                className="focus-entry-icon-btn focus-entry-icon-edit"
-                                onClick={() => navigate(`/session/${s.id}`)}
-                                title="עריכת הדרכה"
-                              >
-                                ✏️
-                              </button>
-                              <button
-                                className="focus-entry-icon-btn focus-entry-icon-delete"
-                                onClick={() => setConfirmDelete(s)}
-                                title="מחיקת הדרכה"
-                              >
-                                🗑
-                              </button>
-                            </div>
-                          </div>
-                          <div className="focus-entry-text">{s.notes[fa.key] || '—'}</div>
-                        </div>
-                      ))
-                    )}
+              return (
+                <div key={s.id} className="pt-session-card">
+                  <div className="pt-session-header" onClick={() => toggleArea(s.id)}>
+                    <div className="pt-session-header-right">
+                      <span className="pt-session-num">#{idx + 1}</span>
+                      <span className="pt-session-date">📅 {formatDate(s.date)}</span>
+                      {n.danger && <span className="pt-danger-badge">⚠️ מסוכנות</span>}
+                      {tags.length > 0 && tags.map(t => (
+                        <span key={t} className="pt-tag-badge">{tagLabels[t] || t}</span>
+                      ))}
+                    </div>
+                    <div className="pt-session-header-left">
+                      <button className="btn btn-danger btn-sm" onClick={e => { e.stopPropagation(); setConfirmDelete(s); }}>🗑</button>
+                      <span className="pt-chevron">{isExpanded ? '▲' : '▼'}</span>
+                    </div>
                   </div>
-                )}
-              </div>
-            );
-          })}
+
+                  {isExpanded && (
+                    <div className="pt-session-body">
+                      {isNew ? (
+                        newFields.filter(f => f.value?.trim()).map(f => (
+                          <div key={f.label} className="pt-field">
+                            <div className="pt-field-label">{f.label}</div>
+                            <div className="pt-field-value">{f.value}</div>
+                          </div>
+                        ))
+                      ) : (
+                        legacyFields.map(([k, v]) => (
+                          <div key={k} className="pt-field">
+                            <div className="pt-field-value">{v}</div>
+                          </div>
+                        ))
+                      )}
+                      {n.danger && n.dangerNote && (
+                        <div className="pt-field pt-field-danger">
+                          <div className="pt-field-label">⚠️ הערת מסוכנות</div>
+                          <div className="pt-field-value">{n.dangerNote}</div>
+                        </div>
+                      )}
+                      {s.summary && (
+                        <div className="pt-field pt-field-summary">
+                          <div className="pt-field-label">סיכום</div>
+                          <div className="pt-field-value">{s.summary}</div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
         </div>
       )}
 
-      {/* המשגות שהוגשו */}
+      {/* המשגות */}
       {conceptualizations.length > 0 && (
-        <div className="sessions-manager-section">
-          <button className="sessions-manager-toggle" onClick={() => setShowConceptualizations((v) => !v)}>
+        <div className="sessions-manager-section" style={{ marginTop: 16 }}>
+          <button className="sessions-manager-toggle" onClick={() => setShowConceptualizations(v => !v)}>
             🧩 המשגות שהוגשו ({conceptualizations.length})
             <span style={{ marginRight: '8px' }}>{showConceptualizations ? '▲' : '▼'}</span>
           </button>
           {showConceptualizations && (
             <div className="sessions-manager-list">
               {[...conceptualizations]
-                .sort((a, b) => {
-                  const ta = a.submittedAt?.toDate?.() || 0;
-                  const tb = b.submittedAt?.toDate?.() || 0;
-                  return tb - ta;
-                })
-                .map((c) => (
+                .sort((a, b) => (a.submittedAt?.toDate?.() || 0) - (b.submittedAt?.toDate?.() || 0))
+                .map(c => (
                   <div key={c.id} className="concept-entry">
                     <div className="concept-entry-date">📅 {formatTimestamp(c.submittedAt)}</div>
-                    {CONCEPTUALIZATION_SECTIONS.map((sec) => {
-                      const hasContent = sec.fields.some((f) => c.fields?.[f.key]?.trim());
+                    {CONCEPTUALIZATION_SECTIONS.map(sec => {
+                      const hasContent = sec.fields.some(f => c.fields?.[f.key]?.trim());
                       if (!hasContent) return null;
                       return (
                         <div key={sec.section} className="concept-section">
                           <div className="concept-section-title">{sec.section}</div>
-                          {sec.fields.map((f) => c.fields?.[f.key]?.trim() ? (
+                          {sec.fields.map(f => c.fields?.[f.key]?.trim() ? (
                             <div key={f.key} className="concept-field">
                               <span className="concept-field-label">{f.label}:</span>
                               <span className="concept-field-value">{c.fields[f.key]}</span>
@@ -383,37 +372,6 @@ export default function PatientPage() {
           )}
         </div>
       )}
-
-      {/* ניהול הדרכות */}
-      <div className="sessions-manager-section">
-        <button
-          className="sessions-manager-toggle"
-          onClick={() => setShowSessionsManager((v) => !v)}
-        >
-          🗂 ניהול הדרכות ({sessions.length})
-          <span style={{ marginRight: '8px' }}>{showSessionsManager ? '▲' : '▼'}</span>
-        </button>
-
-        {showSessionsManager && (
-          <div className="sessions-manager-list">
-            {sessions.length === 0 ? (
-              <div className="focus-area-empty">אין הדרכות עדיין.</div>
-            ) : (
-              [...sessions].reverse().map((s) => (
-                <div key={s.id} className="session-card">
-                  <div className="session-card-header">
-                    <span className="session-date-badge">{formatDate(s.date)}</span>
-                    <div className="session-card-actions">
-                      <button className="btn btn-secondary btn-sm" onClick={() => navigate(`/session/${s.id}`)}>עריכה</button>
-                      <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(s)}>🗑 מחק</button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        )}
-      </div>
 
       {confirmDelete && (
         <ConfirmDialog

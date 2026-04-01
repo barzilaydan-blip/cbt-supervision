@@ -56,20 +56,21 @@ ${notes}
 /**
  * Generate therapeutic recommendations based on session notes.
  */
-export async function getTherapeuticRecommendations({ patientName, focusAreaLabel, notes, therapistProfession }) {
+export async function getTherapeuticRecommendations({ patientName, focusAreaLabel, notes, therapistProfession, background }) {
   const response = await client.messages.create({
     model: 'claude-opus-4-6',
     max_tokens: 1024,
     messages: [
       {
         role: 'user',
-        content: `אתה מדריך CBT מנוסח המסייע בסופרוויזיה. בהתבסס על הערות ההדרכה שלהלן, הצע 3-5 המלצות טיפוליות קצרות ומעשיות.
+        content: `אתה מדריך CBT מנוסח המסייע בסופרוויזיה. בהתבסס על הערות ההדרכה והרקע של המטופל, הצע 3-5 המלצות טיפוליות קצרות ומעשיות.
 
 מטופל: ${patientName || 'לא צוין'}
 תחום התמקדות: ${focusAreaLabel}
 ${therapistProfession ? `מקצוע המטפל: ${therapistProfession}` : ''}
+${background ? `\nרקע המטופל:\n${background}` : ''}
 
-הערות ההדרכה:
+הערות ההדרכה הנוכחית:
 ${notes}
 
 הצג את ההמלצות כרשימה ממוספרת בעברית. כל המלצה — משפט אחד או שניים. התמקד בצעדים מעשיים ל-CBT.`,
