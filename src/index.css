@@ -2923,6 +2923,67 @@ body {
   border-radius: 0 8px 8px 0;
 }
 
+/* PatientPage inline editing */
+.pt-session-edit {
+  background: #f8faff;
+  border-top: 1px solid #dde3f0;
+}
+
+.pt-edit-textarea {
+  width: 100%;
+  box-sizing: border-box;
+  border: 1px solid #c5d0e8;
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-family: inherit;
+  font-size: 0.92rem;
+  resize: vertical;
+  background: #fff;
+  direction: rtl;
+  margin-top: 4px;
+}
+.pt-edit-textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 2px rgba(99,102,241,0.12);
+}
+
+.pt-edit-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.pt-edit-tag {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px 12px;
+  border-radius: 20px;
+  border: 1px solid #c5d0e8;
+  background: #f1f5fb;
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, color 0.15s;
+  user-select: none;
+}
+.pt-edit-tag.checked {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.pt-edit-tag.checked.danger {
+  background: #e53e3e;
+  border-color: #e53e3e;
+}
+
+.pt-edit-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-start;
+  margin-top: 10px;
+}
+
 /* Summary modal — session rows with tags */
 .summary-sessions-list {
   display: flex;

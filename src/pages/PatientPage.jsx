@@ -5,6 +5,7 @@ import {
   onSnapshot,
   addDoc,
   deleteDoc,
+  updateDoc,
   doc,
   getDoc,
   query,
@@ -64,6 +65,24 @@ export default function PatientPage() {
   const [linkCopied, setLinkCopied] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState('');
+  const [editingSessionId, setEditingSessionId] = useState(null);
+  const [editDraft, setEditDraft] = useState({});
+  const [savingSession, setSavingSession] = useState(false);
+
+  const SESSION_FIELDS = [
+    { key: 'report', label: 'דיווח המודרך' },
+    { key: 'issues', label: 'סוגיות ודילמות' },
+    { key: 'recommendations', label: 'המלצות וצעדים הבאים' },
+  ];
+  const QUICK_TAGS = [
+    { key: 'motivation', label: 'מוטיבציה' },
+    { key: 'treatmentGoals', label: 'מטרות טיפול' },
+    { key: 'interventionTech', label: 'טכניקות התערבות' },
+    { key: 'theoreticalKnow', label: 'ידע תיאורטי' },
+    { key: 'treatmentPlanning', label: 'תכנון טיפול' },
+    { key: 'homework', label: 'שיעורי בית' },
+    { key: 'conceptualization', label: 'המשגה' },
+  ];
 
   useEffect(() => {
     let cancelled = false;
@@ -204,6 +223,32 @@ export default function PatientPage() {
     }
   }
 
+  function startEditing(s) {
+    const n = s.notes || {};
+    setEditDraft({
+      report: n.report || '',
+      issues: n.issues || '',
+      recommendations: n.recommendations || '',
+      danger: n.danger || false,
+      dangerNote: n.dangerNote || '',
+      tags: { ...(n.tags || {}) },
+    });
+    setEditingSessionId(s.id);
+  }
+
+  async function handleSaveSession(sessionId) {
+    setSavingSession(true);
+    try {
+      await updateDoc(doc(db, 'sessions', sessionId), { notes: editDraft });
+      setEditingSessionId(null);
+    } catch (err) {
+      console.error(err);
+      setError('שגיאה בשמירת ההדרכה. נסה שנית.');
+    } finally {
+      setSavingSession(false);
+    }
+  }
+
   function formatTimestamp(ts) {
     if (!ts) return '';
     const date = ts.toDate ? ts.toDate() : new Date(ts);
@@ -284,9 +329,11 @@ export default function PatientPage() {
               const tagLabels = { motivation:'מוטיבציה', treatmentGoals:'מטרות טיפול', interventionTech:'טכניקות התערבות', theoreticalKnow:'ידע תיאורטי', treatmentPlanning:'תכנון טיפול', homework:'שיעורי בית', conceptualization:'המשגה' };
               const isExpanded = !!expandedAreas[s.id];
 
+              const isEditing = editingSessionId === s.id;
+
               return (
                 <div key={s.id} className="pt-session-card">
-                  <div className="pt-session-header" onClick={() => toggleArea(s.id)}>
+                  <div className="pt-session-header" onClick={() => !isEditing && toggleArea(s.id)}>
                     <div className="pt-session-header-right">
                       <span className="pt-session-num">#{idx + 1}</span>
                       <span className="pt-session-date">📅 {formatDate(s.date)}</span>
@@ -296,12 +343,72 @@ export default function PatientPage() {
                       ))}
                     </div>
                     <div className="pt-session-header-left">
+                      {!isEditing && (
+                        <button className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); startEditing(s); if (!isExpanded) toggleArea(s.id); }}>✏️</button>
+                      )}
                       <button className="btn btn-danger btn-sm" onClick={e => { e.stopPropagation(); setConfirmDelete(s); }}>🗑</button>
-                      <span className="pt-chevron">{isExpanded ? '▲' : '▼'}</span>
+                      {!isEditing && <span className="pt-chevron">{isExpanded ? '▲' : '▼'}</span>}
                     </div>
                   </div>
 
-                  {isExpanded && (
+                  {isEditing ? (
+                    <div className="pt-session-body pt-session-edit">
+                      {SESSION_FIELDS.map(f => (
+                        <div key={f.key} className="pt-field">
+                          <div className="pt-field-label">{f.label}</div>
+                          <textarea
+                            className="pt-edit-textarea"
+                            value={editDraft[f.key] || ''}
+                            onChange={e => setEditDraft(d => ({ ...d, [f.key]: e.target.value }))}
+                            rows={3}
+                          />
+                        </div>
+                      ))}
+                      <div className="pt-field">
+                        <div className="pt-field-label">נושאים שנדונו</div>
+                        <div className="pt-edit-tags">
+                          {QUICK_TAGS.map(t => (
+                            <label key={t.key} className={`pt-edit-tag${editDraft.tags?.[t.key] ? ' checked' : ''}`}>
+                              <input
+                                type="checkbox"
+                                checked={!!editDraft.tags?.[t.key]}
+                                onChange={e => setEditDraft(d => ({ ...d, tags: { ...d.tags, [t.key]: e.target.checked } }))}
+                                style={{ display: 'none' }}
+                              />
+                              {t.label}
+                            </label>
+                          ))}
+                        </div>
+                      </div>
+                      <div className="pt-field">
+                        <label className={`pt-edit-tag${editDraft.danger ? ' checked danger' : ''}`}>
+                          <input
+                            type="checkbox"
+                            checked={!!editDraft.danger}
+                            onChange={e => setEditDraft(d => ({ ...d, danger: e.target.checked }))}
+                            style={{ display: 'none' }}
+                          />
+                          ⚠️ מסוכנות
+                        </label>
+                        {editDraft.danger && (
+                          <textarea
+                            className="pt-edit-textarea"
+                            style={{ marginTop: 6 }}
+                            placeholder="הערת מסוכנות..."
+                            value={editDraft.dangerNote || ''}
+                            onChange={e => setEditDraft(d => ({ ...d, dangerNote: e.target.value }))}
+                            rows={2}
+                          />
+                        )}
+                      </div>
+                      <div className="pt-edit-actions">
+                        <button className="btn btn-primary btn-sm" onClick={() => handleSaveSession(s.id)} disabled={savingSession}>
+                          {savingSession ? '⏳ שומר...' : '✅ שמור'}
+                        </button>
+                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingSessionId(null)}>ביטול</button>
+                      </div>
+                    </div>
+                  ) : isExpanded && (
                     <div className="pt-session-body">
                       {isNew ? (
                         newFields.filter(f => f.value?.trim()).map(f => (
