@@ -15,10 +15,13 @@ const SESSION_FIELDS = [
 ];
 
 const QUICK_TAGS = [
-  { key: 'treatmentProcess',  label: 'תהליך טיפול' },
-  { key: 'treatmentPlanning', label: 'תכנון טיפול' },
-  { key: 'homework',          label: 'שיעורי בית' },
-  { key: 'conceptualization', label: 'המשגה' },
+  { key: 'motivation',          label: 'מוטיבציה' },
+  { key: 'treatmentGoals',      label: 'מטרות טיפול' },
+  { key: 'interventionTech',    label: 'טכניקות התערבות' },
+  { key: 'theoreticalKnow',     label: 'ידע תיאורטי' },
+  { key: 'treatmentPlanning',   label: 'תכנון טיפול' },
+  { key: 'homework',            label: 'שיעורי בית' },
+  { key: 'conceptualization',   label: 'המשגה' },
 ];
 
 function emptyDraft() {

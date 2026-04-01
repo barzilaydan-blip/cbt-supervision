@@ -281,7 +281,7 @@ export default function PatientPage() {
               const legacyFields = Object.entries(n)
                 .filter(([k, v]) => typeof v === 'string' && v.trim() && !['report','issues','recommendations','dangerNote'].includes(k));
               const tags = n.tags ? Object.entries(n.tags).filter(([,v]) => v).map(([k]) => k) : [];
-              const tagLabels = { treatmentProcess:'תהליך טיפול', treatmentPlanning:'תכנון טיפול', homework:'שיעורי בית', conceptualization:'המשגה' };
+              const tagLabels = { motivation:'מוטיבציה', treatmentGoals:'מטרות טיפול', interventionTech:'טכניקות התערבות', theoreticalKnow:'ידע תיאורטי', treatmentPlanning:'תכנון טיפול', homework:'שיעורי בית', conceptualization:'המשגה' };
               const isExpanded = !!expandedAreas[s.id];
 
               return (

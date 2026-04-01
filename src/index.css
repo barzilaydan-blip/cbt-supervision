@@ -2922,3 +2922,32 @@ body {
   padding: 8px 10px;
   border-radius: 0 8px 8px 0;
 }
+
+/* Summary modal — session rows with tags */
+.summary-sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.summary-session-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.summary-session-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.summary-tag-chip {
+  font-size: 0.75rem;
+  background: #e0f2fe;
+  color: #0369a1;
+  border-radius: 20px;
+  padding: 2px 8px;
+}

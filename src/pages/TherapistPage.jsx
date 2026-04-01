@@ -37,6 +37,12 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
   );
 }
 
+const TAG_LABELS = {
+  motivation: 'מוטיבציה', treatmentGoals: 'מטרות טיפול',
+  interventionTech: 'טכניקות התערבות', theoreticalKnow: 'ידע תיאורטי',
+  treatmentPlanning: 'תכנון טיפול', homework: 'שיעורי בית', conceptualization: 'המשגה',
+};
+
 function SupervisionSummaryModal({ therapist, patients, allSessions, onClose }) {
   const [exporting, setExporting] = useState(false);
   const hoursPerSession = parseFloat(therapist?.hoursPerSession) || 0;
@@ -44,9 +50,15 @@ function SupervisionSummaryModal({ therapist, patients, allSessions, onClose }) 
   const totalHours = uniqueDates.length * hoursPerSession;
 
   const patientRows = patients.map(p => {
-    const pSessions = allSessions.filter(s => s.patientId === p.id && s.date);
-    const pDates = [...new Set(pSessions.map(s => s.date))].sort();
-    return { name: p.name, count: pDates.length, dates: pDates };
+    const pSessions = allSessions.filter(s => s.patientId === p.id && s.date)
+      .sort((a, b) => a.date.localeCompare(b.date));
+    const sessionDetails = pSessions.map(s => {
+      const tags = s.notes?.tags
+        ? Object.entries(s.notes.tags).filter(([, v]) => v).map(([k]) => TAG_LABELS[k] || k)
+        : [];
+      return { date: s.date, tags };
+    });
+    return { name: p.name, count: sessionDetails.length, sessionDetails };
   }).filter(r => r.count > 0).sort((a, b) => b.count - a.count);
 
   async function handleExport() {
@@ -105,9 +117,18 @@ function SupervisionSummaryModal({ therapist, patients, allSessions, onClose }) 
                   <span className="summary-patient-name">{row.name}</span>
                   <span className="summary-patient-count">{row.count} הדרכות</span>
                 </div>
-                <div className="summary-patient-dates">
-                  {row.dates.map(d => (
-                    <span key={d} className="summary-date-chip">{d}</span>
+                <div className="summary-sessions-list">
+                  {row.sessionDetails.map((s, i) => (
+                    <div key={s.date + i} className="summary-session-row">
+                      <span className="summary-date-chip">{s.date}</span>
+                      {s.tags.length > 0 && (
+                        <div className="summary-session-tags">
+                          {s.tags.map(t => (
+                            <span key={t} className="summary-tag-chip">{t}</span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   ))}
                 </div>
               </div>
