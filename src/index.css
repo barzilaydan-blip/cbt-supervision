@@ -1318,6 +1318,42 @@ body {
   margin-bottom: 8px;
 }
 
+.material-card-selected {
+  border-color: var(--primary);
+  background: #f0f0ff;
+}
+
+.material-send-checkbox {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+  cursor: pointer;
+  flex-shrink: 0;
+  margin-left: 8px;
+}
+
+.materials-send-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 16px;
+  background: #eef2ff;
+  border: 1px solid #c7d2fe;
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+
+.materials-send-label {
+  font-weight: 600;
+  color: var(--primary-dark);
+  font-size: 0.95rem;
+}
+
+.materials-send-error {
+  color: #c53030;
+  font-size: 0.85rem;
+}
+
 .material-card .card {
   border: none;
   box-shadow: none;

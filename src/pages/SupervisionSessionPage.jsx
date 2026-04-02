@@ -1,5 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   collection, doc, getDoc, getDocs, addDoc, updateDoc, query,
   where, serverTimestamp,
@@ -60,6 +60,8 @@ function extractLastSessionSummary(session) {
 export default function SupervisionSessionPage() {
   const { therapistId } = useParams();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const initialPatientId = searchParams.get('patientId');
 
   const [therapist, setTherapist] = useState(null);
   const [patients, setPatients] = useState([]);
@@ -78,7 +80,7 @@ export default function SupervisionSessionPage() {
 
   const stored = loadStoredDraft();
   const [date, setDate] = useState(stored?.date || getTodayString());
-  const [selectedPatientId, setSelectedPatientId] = useState(null);
+  const [selectedPatientId, setSelectedPatientId] = useState(initialPatientId || null);
 
   // { [patientId]: { report, issues, recommendations, danger, dangerNote, tags } }
   const [draftNotes, setDraftNotes] = useState(stored?.draftNotes || {});
@@ -127,7 +129,7 @@ export default function SupervisionSessionPage() {
           .sort((a, b) => (a.name || '').localeCompare(b.name || '', 'he'));
         if (!cancelled) {
           setPatients(list);
-          if (list.length > 0) setSelectedPatientId(list[0].id);
+          if (!initialPatientId && list.length > 0) setSelectedPatientId(list[0].id);
           setLoading(false);
         }
       } catch (err) {
@@ -351,6 +353,12 @@ export default function SupervisionSessionPage() {
         <div className="sup-session-header-left">
           <label className="sup-date-label">תאריך:</label>
           <input type="date" className="form-input sup-date-input" value={date} onChange={e => setDate(e.target.value)} />
+          <button
+            className="btn btn-secondary sup-finish-btn"
+            onClick={() => navigate(`/materials?from=/supervision-session/${therapistId}&therapistId=${therapistId}`)}
+          >
+            📤 שלח חומרים
+          </button>
           <button className="btn btn-primary sup-finish-btn" onClick={handleFinish} disabled={saving || saved}>
             {saved ? '✅ נשמר!' : saving ? '⏳ שומר...' : '💾 סיום מפגש ושמירה'}
           </button>

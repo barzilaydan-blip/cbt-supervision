@@ -1,15 +1,27 @@
 import React, { useEffect, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
-  collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, serverTimestamp, orderBy, query,
+  collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, getDoc, serverTimestamp, orderBy, query,
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
+import { sendMaterialsEmail } from '../utils/emailService.js';
 
 export const MATERIAL_CATEGORIES = ['שאלונים', 'דפי עבודה', 'מדריכים', 'כלים טיפוליים', 'אחר'];
 
 export default function MaterialsPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const fromUrl = searchParams.get('from');       // e.g. /supervision-session/xxx
+  const sendTherapistId = searchParams.get('therapistId');
+  const sendMode = !!fromUrl;
+
+  const [therapistForSend, setTherapistForSend] = useState(null);
+  const [selectedMaterials, setSelectedMaterials] = useState(new Set());
+  const [sendLoading, setSendLoading] = useState(false);
+  const [sendSuccess, setSendSuccess] = useState(false);
+  const [sendError, setSendError] = useState('');
+
   const [materials, setMaterials] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
@@ -44,6 +56,43 @@ export default function MaterialsPage() {
     );
     return unsub;
   }, []);
+
+  useEffect(() => {
+    if (!sendTherapistId) return;
+    getDoc(doc(db, 'therapists', sendTherapistId))
+      .then(snap => { if (snap.exists()) setTherapistForSend({ id: snap.id, ...snap.data() }); })
+      .catch(console.error);
+  }, [sendTherapistId]);
+
+  function toggleMaterial(id) {
+    setSelectedMaterials(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function handleSendMaterials() {
+    if (!therapistForSend?.email || selectedMaterials.size === 0) return;
+    setSendLoading(true);
+    setSendError('');
+    try {
+      const selected = materials.filter(m => selectedMaterials.has(m.id));
+      const materialsList = selected.map(m => `• ${m.name}${m.url ? ': ' + m.url : ''}`).join('\n');
+      await sendMaterialsEmail({
+        therapistEmail: therapistForSend.email,
+        therapistName: therapistForSend.name || '',
+        materialsList,
+      });
+      setSendSuccess(true);
+      setTimeout(() => { setSendSuccess(false); navigate(fromUrl); }, 2000);
+    } catch (err) {
+      console.error(err);
+      setSendError('שגיאה בשליחת המייל. נסה שנית.');
+    } finally {
+      setSendLoading(false);
+    }
+  }
 
   function addFormTag() {
     const tag = tagInput.trim().replace(/,+$/, '');
@@ -258,9 +307,19 @@ export default function MaterialsPage() {
 
   function MaterialCard({ m }) {
     return (
-      <div className="material-card">
+      <div className={`material-card${sendMode && selectedMaterials.has(m.id) ? ' material-card-selected' : ''}`}
+        onClick={sendMode ? () => toggleMaterial(m.id) : undefined}
+        style={sendMode ? { cursor: 'pointer' } : undefined}
+      >
         <div className="card">
           <div className="card-body">
+            {sendMode && (
+              <input type="checkbox" className="material-send-checkbox"
+                checked={selectedMaterials.has(m.id)}
+                onChange={() => toggleMaterial(m.id)}
+                onClick={e => e.stopPropagation()}
+              />
+            )}
             <div className="card-title">{m.name}</div>
             {m.url && (
               <a href={m.url} target="_blank" rel="noopener noreferrer" className="card-meta">
@@ -316,10 +375,10 @@ export default function MaterialsPage() {
   return (
     <div className="page">
       <div className="page-header">
-        <button className="btn-back" onClick={() => navigate('/')}>&#x2190; חזרה</button>
+        <button className="btn-back" onClick={() => navigate(sendMode ? fromUrl : '/')}>&#x2190; {sendMode ? 'חזרה למפגש' : 'חזרה'}</button>
         <div style={{ flex: 1 }}>
           <h2>📚 ספריית חומרים</h2>
-          <div className="subtitle">ניהול חומרי עזר לטיפול</div>
+          <div className="subtitle">{sendMode && therapistForSend ? `שליחה ל: ${therapistForSend.name}` : 'ניהול חומרי עזר לטיפול'}</div>
         </div>
         <div style={{ position: 'relative' }}>
           <button
@@ -344,14 +403,32 @@ export default function MaterialsPage() {
 
       {error && <div className="alert alert-error">⚠️ {error}</div>}
 
-      <div className="page-actions">
+      {sendMode && (
+        <div className="materials-send-bar">
+          <span className="materials-send-label">סמן חומרים לשליחה:</span>
+          <div style={{ flex: 1 }} />
+          {sendError && <span className="materials-send-error">⚠️ {sendError}</span>}
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={handleSendMaterials}
+            disabled={sendLoading || sendSuccess || selectedMaterials.size === 0 || !therapistForSend?.email}
+          >
+            {sendSuccess ? '✅ נשלח!' : sendLoading ? '⏳ שולח...' : `📧 שלח ${selectedMaterials.size > 0 ? `(${selectedMaterials.size})` : ''}`}
+          </button>
+          {!therapistForSend?.email && (
+            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>אין כתובת מייל למטפל</span>
+          )}
+        </div>
+      )}
+
+      {!sendMode && <div className="page-actions">
         <button className="btn btn-primary" onClick={() => { setShowAddForm(v => !v); setShowAiPanel(false); }}>
           {showAddForm ? '✕ סגור' : '+ הוסף חומר'}
         </button>
         <button className="btn btn-secondary" onClick={() => { setShowAiPanel(v => !v); setShowAddForm(false); setAiStep('idle'); setAiError(''); }}>
           {showAiPanel ? '✕ סגור' : '🤖 צור עם AI'}
         </button>
-      </div>
+      </div>}
 
       {showAiPanel && (
         <div className="add-form ai-panel">

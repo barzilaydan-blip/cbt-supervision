@@ -270,6 +270,14 @@ export default function PatientPage() {
           <h2>{patient ? patient.name : 'טוען...'}</h2>
           <div className="subtitle">{therapist ? `מטפל: ${therapist.name}` : ''}</div>
         </div>
+        {patient?.therapistId && (
+          <button
+            className="btn btn-primary btn-sm"
+            onClick={() => navigate(`/supervision-session/${patient.therapistId}?patientId=${patientId}`)}
+          >
+            ▶ הזן מפגש
+          </button>
+        )}
         <div style={{ position: 'relative' }}>
           <button
             className="patient-header-kebab"
