@@ -49,7 +49,7 @@ export default function MaterialsPage() {
   const [aiError, setAiError] = useState('');
 
   useEffect(() => {
-    const q = query(collection(db, 'materials'), orderBy('createdAt', 'asc'));
+    const q = query(collection(db, 'materials'), orderBy('createdAt', 'desc'));
     const unsub = onSnapshot(q,
       (snap) => { setMaterials(snap.docs.map(d => ({ id: d.id, ...d.data() }))); setLoading(false); },
       (err) => { console.error(err); setLoading(false); }
@@ -285,6 +285,9 @@ export default function MaterialsPage() {
       setSaving(false);
     }
   }
+
+  const RECENT_COUNT = 5;
+  const recentMaterials = materials.slice(0, RECENT_COUNT);
 
   const allTags = [...new Set(materials.flatMap(m => m.tags || []))].sort();
 
@@ -653,14 +656,21 @@ export default function MaterialsPage() {
           </div>
         </div>
       ) : (
-        MATERIAL_CATEGORIES.map(cat => grouped[cat].length > 0 && (
-          <div key={cat} className="section">
-            <div className="section-title">{cat}</div>
-            <div className="card-list">
-              {grouped[cat].map(m => <MaterialCard key={m.id} m={m} />)}
-            </div>
+        <div className="section">
+          <div className="section-title" style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
+            {RECENT_COUNT} החומרים האחרונים שעלו
           </div>
-        ))
+          <div className="card-list">
+            {recentMaterials.map(m => <MaterialCard key={m.id} m={m} />)}
+          </div>
+          {materials.length > RECENT_COUNT && (
+            <div style={{ textAlign: 'center', marginTop: 8 }}>
+              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
+                חפש או סנן לפי תגית כדי לראות את כל {materials.length} החומרים
+              </span>
+            </div>
+          )}
+        </div>
       )}
 
       {confirmDelete && (
