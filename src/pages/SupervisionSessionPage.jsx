@@ -43,11 +43,13 @@ function formatDate(dateStr) {
   } catch { return dateStr; }
 }
 
-// Extract "last session summary" — supports both new and legacy session structures
+// Extract "last session summary" — prefers the AI-generated summary, falls back to
+// older structures for sessions created before that field existed.
 function extractLastSessionSummary(session) {
   if (!session) return null;
+  if (session.summary?.trim()) return { type: 'summary', text: session.summary };
   const n = session.notes || {};
-  // New structure
+  // New structure (pre-AI-summary)
   if (n.recommendations?.trim()) return { type: 'new', text: n.recommendations };
   // Legacy: any filled FOCUS_AREAS field
   const legacy = Object.entries(n)
@@ -96,10 +98,6 @@ export default function SupervisionSessionPage() {
 
   // { [patientId]: sessionId } — existing sessions on the current date
   const [existingSessionIds, setExistingSessionIds] = useState({});
-
-  // Session summary
-  const [sessionSummary, setSessionSummary] = useState('');
-  const [summaryLoading, setSummaryLoading] = useState(false);
 
   // Profile editing
   const [editingBackground, setEditingBackground] = useState(false);
@@ -237,6 +235,10 @@ export default function SupervisionSessionPage() {
   }
 
   // ─── Save all ─────────────────────────────────────────────────────────────────
+  // For each patient with a draft, an AI summary of that patient's part of the
+  // meeting is generated and saved on the session (top-level `summary` field —
+  // same convention SessionPage/PatientPage already use), so it's available as
+  // "פגישה קודמת" the next time a supervision session is opened for them.
   async function handleFinish() {
     if (!hasAnyDraft()) { navigate(`/therapist/${therapistId}`); return; }
     setSaving(true);
@@ -246,7 +248,7 @@ export default function SupervisionSessionPage() {
         therapistId, date, createdAt: serverTimestamp(),
       });
       await Promise.all(
-        patients.filter(p => hasDraft(p.id)).map(p => {
+        patients.filter(p => hasDraft(p.id)).map(async (p) => {
           const d = draftNotes[p.id] || emptyDraft();
           const notes = {
             report: d.report || '',
@@ -256,16 +258,35 @@ export default function SupervisionSessionPage() {
             dangerNote: d.dangerNote || '',
             tags: d.tags || {},
           };
+          const parts = [
+            notes.report          && `דיווח המודרך:\n${notes.report}`,
+            notes.issues          && `סוגיות ודילמות:\n${notes.issues}`,
+            notes.recommendations && `המלצות וצעדים הבאים:\n${notes.recommendations}`,
+          ].filter(Boolean);
+          let summary = '';
+          if (parts.length) {
+            try {
+              summary = await generateSessionSummary({
+                patientName:   p.name,
+                therapistName: therapist?.name,
+                date:          formatDate(date),
+                notes:         parts.join('\n\n'),
+              });
+            } catch (err) {
+              console.error('summary generation failed for patient', p.id, err);
+            }
+          }
+          const payload = summary ? { notes, summary } : { notes };
           const existingId = existingSessionIds[p.id];
           if (existingId) {
             // Session already exists on this date — update it
-            return updateDoc(doc(db, 'sessions', existingId), { notes });
+            return updateDoc(doc(db, 'sessions', existingId), payload);
           }
           return addDoc(collection(db, 'sessions'), {
             patientId: p.id, therapistId,
             supervisionSessionId: supSessionRef.id,
             date,
-            notes,
+            ...payload,
             createdAt: serverTimestamp(),
           });
         })
@@ -278,29 +299,6 @@ export default function SupervisionSessionPage() {
       setError('שגיאה בשמירה. נסה שנית.');
       setSaving(false);
     }
-  }
-
-  // ─── Session summary ──────────────────────────────────────────────────────────
-  async function handleGenerateSummary() {
-    const d = draftNotes[selectedPatientId] || emptyDraft();
-    const parts = [
-      d.report?.trim()          && `דיווח המודרך:\n${d.report}`,
-      d.issues?.trim()          && `סוגיות ודילמות:\n${d.issues}`,
-      d.recommendations?.trim() && `המלצות וצעדים הבאים:\n${d.recommendations}`,
-    ].filter(Boolean);
-    if (!parts.length) return;
-    setSummaryLoading(true);
-    setSessionSummary('');
-    try {
-      const summary = await generateSessionSummary({
-        patientName:   selectedPatient?.name,
-        therapistName: therapist?.name,
-        date:          formatDate(date),
-        notes:         parts.join('\n\n'),
-      });
-      setSessionSummary(summary);
-    } catch (err) { console.error(err); }
-    finally { setSummaryLoading(false); }
   }
 
   // ─── Profile save ─────────────────────────────────────────────────────────────
@@ -360,7 +358,7 @@ export default function SupervisionSessionPage() {
             📤 שלח חומרים
           </button>
           <button className="btn btn-primary sup-finish-btn" onClick={handleFinish} disabled={saving || saved}>
-            {saved ? '✅ נשמר!' : saving ? '⏳ שומר...' : '💾 סיום מפגש ושמירה'}
+            {saved ? '✅ נשמר!' : saving ? '⏳ שומר ומסכם...' : '💾 סיום מפגש ושמירה'}
           </button>
         </div>
       </div>
@@ -430,7 +428,12 @@ export default function SupervisionSessionPage() {
                       ) : (
                         <>
                           <div className="sup-last-session-date">📅 {formatDate(lastSession.date)}</div>
-                          {lastSummary.type === 'new' ? (
+                          {lastSummary.type === 'summary' ? (
+                            <div className="sup-last-session-field">
+                              <div className="sup-last-session-field-label">סיכום פגישה קודמת</div>
+                              <div className="sup-last-session-field-value">{lastSummary.text}</div>
+                            </div>
+                          ) : lastSummary.type === 'new' ? (
                             <div className="sup-last-session-field">
                               <div className="sup-last-session-field-label">המלצות וצעדים הבאים</div>
                               <div className="sup-last-session-field-value">{lastSummary.text}</div>
@@ -499,23 +502,6 @@ export default function SupervisionSessionPage() {
                     />
                   </div>
                 )}
-
-                {/* AI Summary */}
-                <div className="sup-summary-section">
-                  <button
-                    className="btn btn-ai"
-                    onClick={handleGenerateSummary}
-                    disabled={summaryLoading || !(currentDraft.report?.trim() || currentDraft.issues?.trim() || currentDraft.recommendations?.trim())}
-                  >
-                    {summaryLoading ? '⏳ מייצר סיכום...' : '✨ צור סיכום פגישה'}
-                  </button>
-                  {sessionSummary && (
-                    <div className="sup-summary-result">
-                      <div className="sup-summary-label">סיכום פגישה:</div>
-                      <div className="sup-summary-text">{sessionSummary}</div>
-                    </div>
-                  )}
-                </div>
               </div>
             </>
           )}
