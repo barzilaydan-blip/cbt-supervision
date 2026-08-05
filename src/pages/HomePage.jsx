@@ -10,7 +10,6 @@ import {
   where,
   getDocs,
   serverTimestamp,
-  orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
 
@@ -47,11 +46,17 @@ export default function HomePage() {
   const [showKebab, setShowKebab] = useState(false);
 
   useEffect(() => {
-    const q = query(collection(db, 'therapists'), orderBy('createdAt', 'asc'));
+    const q = query(collection(db, 'therapists'));
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setTherapists(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        list.sort((a, b) => {
+          const nameA = (a.name || ((a.firstName || '') + ' ' + (a.lastName || ''))).trim();
+          const nameB = (b.name || ((b.firstName || '') + ' ' + (b.lastName || ''))).trim();
+          return nameA.localeCompare(nameB, 'he');
+        });
+        setTherapists(list);
         setLoading(false);
       },
       (err) => {

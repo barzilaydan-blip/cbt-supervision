@@ -239,7 +239,10 @@ export default function TherapistPage() {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        setPatients(snap.docs.map((d) => ({ id: d.id, ...d.data() })));
+        const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+        // Newest patient first
+        list.sort((a, b) => (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0));
+        setPatients(list);
         setLoading(false);
       },
       (err) => {
