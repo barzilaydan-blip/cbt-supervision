@@ -13,7 +13,6 @@ export default function ConceptualizationFormPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [error, setError] = useState('');
-  const [expandedSections, setExpandedSections] = useState({ 0: true });
 
   useEffect(() => {
     async function load() {
@@ -40,10 +39,6 @@ export default function ConceptualizationFormPage() {
     setFields((prev) => ({ ...prev, [key]: value }));
   }
 
-  function toggleSection(idx) {
-    setExpandedSections((prev) => ({ ...prev, [idx]: !prev[idx] }));
-  }
-
   async function handleSubmit(e) {
     e.preventDefault();
     setSubmitting(true);
@@ -64,90 +59,92 @@ export default function ConceptualizationFormPage() {
     }
   }
 
+  // The letterhead the therapist sees: who is asking for this form
+  const letterhead = (
+    <header className="form-letterhead">
+      <img src={`${import.meta.env.BASE_URL}logo.png`} alt="" className="form-letterhead-logo" />
+      <div>
+        <div className="form-letterhead-name">דן ברזילי, פסיכולוג חינוכי</div>
+        <div className="form-letterhead-title">מומחה ומדריך בטיפול ב- CBT</div>
+      </div>
+    </header>
+  );
+
   if (loading) return (
-    <div className="form-page-wrapper">
-      <div className="loading-wrapper"><div className="spinner" /><span>טוען טופס...</span></div>
+    <div className="form-page-wrapper" aria-busy="true">
+      {letterhead}
+      <div className="sup-skeleton" /><div className="sup-skeleton" /><div className="sup-skeleton short" />
     </div>
   );
 
-  if (error) return (
+  if (!patient) return (
     <div className="form-page-wrapper">
-      <div className="alert alert-error">⚠️ {error}</div>
+      {letterhead}
+      <div className="alert alert-error">{error}</div>
     </div>
   );
 
   if (submitted) return (
     <div className="form-page-wrapper">
-      <div className="form-success-box">
-        <div className="form-success-icon">✅</div>
-        <h2>הטופס נשלח בהצלחה!</h2>
-        <p>תוכן ההמשגה התווסף לתיק המטופל.</p>
+      {letterhead}
+      <div className="form-done">
+        <h1>הטופס התקבל</h1>
+        <p>ההמשגה נוספה לתיק ההדרכה של {patient.name}. אפשר לסגור את הדף.</p>
       </div>
     </div>
   );
 
   return (
     <div className="form-page-wrapper">
-      <div className="form-page-header">
-        <div className="form-page-logo">🧠</div>
-        <h1>טופס המשגה CBT</h1>
-        {patient && (
-          <div className="form-page-subtitle">
-            מטופל/ת: <strong>{patient.name}</strong>
-            {therapist && <> &nbsp;|&nbsp; מטפל/ת: <strong>{therapist.name}</strong></>}
-          </div>
-        )}
+      {letterhead}
+      <div className="form-page-head">
+        <h1>טופס המשגת מקרה</h1>
+        <div className="form-page-subtitle">
+          מטופל/ת: <strong>{patient.name}</strong>
+          {therapist && <> · מטפל/ת: <strong>{therapist.name}</strong></>}
+        </div>
+        <p className="form-page-intro">
+          אפשר למלא רק את החלקים הרלוונטיים. מה שייכתב כאן יוצג למדריך לקראת מפגש ההדרכה.
+        </p>
       </div>
 
       <form onSubmit={handleSubmit} className="form-page-form">
-        {CONCEPTUALIZATION_SECTIONS.map((sec, idx) => {
-          const isOpen = !!expandedSections[idx];
-          return (
-            <div key={idx} className={`cform-section${isOpen ? ' open' : ''}`}>
-              <button
-                type="button"
-                className="cform-section-header"
-                onClick={() => toggleSection(idx)}
-              >
-                <span className="cform-section-num">{idx + 1}</span>
-                <span className="cform-section-title">{sec.section}</span>
-                <span className="focus-area-arrow">{isOpen ? '▲' : '▼'}</span>
-              </button>
+        {CONCEPTUALIZATION_SECTIONS.map((sec, idx) => (
+          <section key={sec.section} className="cform-section">
+            <h2 className="cform-section-title"><span className="cform-section-num">{idx + 1}</span>{sec.section}</h2>
+            {sec.fields.map((f) => (
+              <div key={f.key} className="cform-field">
+                <label className="cform-label" htmlFor={`cform-${f.key}`}>{f.label}</label>
+                {f.description && <div className="cform-desc" id={`cform-${f.key}-desc`}>{f.description}</div>}
+                {f.type === 'text' ? (
+                  <input
+                    id={`cform-${f.key}`}
+                    className="form-input"
+                    type="text"
+                    aria-describedby={f.description ? `cform-${f.key}-desc` : undefined}
+                    value={fields[f.key] || ''}
+                    onChange={(e) => handleChange(f.key, e.target.value)}
+                  />
+                ) : (
+                  <textarea
+                    id={`cform-${f.key}`}
+                    className="sup-field-textarea"
+                    rows={4}
+                    aria-describedby={f.description ? `cform-${f.key}-desc` : undefined}
+                    value={fields[f.key] || ''}
+                    onChange={(e) => handleChange(f.key, e.target.value)}
+                  />
+                )}
+              </div>
+            ))}
+          </section>
+        ))}
 
-              {isOpen && (
-                <div className="cform-section-body">
-                  {sec.fields.map((f) => (
-                    <div key={f.key} className="cform-field">
-                      <label className="cform-label">{f.label}</label>
-                      {f.description && <div className="cform-desc">{f.description}</div>}
-                      {f.type === 'text' ? (
-                        <input
-                          className="form-input"
-                          type="text"
-                          value={fields[f.key] || ''}
-                          onChange={(e) => handleChange(f.key, e.target.value)}
-                        />
-                      ) : (
-                        <textarea
-                          className="focus-area-textarea"
-                          rows={4}
-                          value={fields[f.key] || ''}
-                          onChange={(e) => handleChange(f.key, e.target.value)}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          );
-        })}
-
-        {error && <div className="alert alert-error">⚠️ {error}</div>}
+        {error && <div className="alert alert-error">{error}</div>}
 
         <div className="cform-submit-row">
           <button type="submit" className="btn btn-primary cform-submit-btn" disabled={submitting}>
-            {submitting ? '⏳ שולח...' : '📤 שלח טופס'}
+            {submitting ? 'שולח...' : 'שלח את הטופס'}
           </button>
         </div>
       </form>

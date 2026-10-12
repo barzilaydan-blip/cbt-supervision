@@ -15,7 +15,7 @@ import {
   orderBy,
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
-import { sendMaterialsEmail } from '../utils/emailService.js';
+import { sendMaterialsEmail, formatMaterialsListHtml } from '../utils/emailService.js';
 import { exportSummaryPDF } from '../utils/exportPDF.js';
 
 function ConfirmDialog({ message, onConfirm, onCancel }) {
@@ -42,6 +42,23 @@ const TAG_LABELS = {
   interventionTech: 'טכניקות התערבות', theoreticalKnow: 'ידע תיאורטי',
   treatmentPlanning: 'תכנון טיפול', homework: 'שיעורי בית', conceptualization: 'המשגה',
 };
+
+const DETAIL_FIELDS = [
+  { key: 'firstName', label: 'שם פרטי' },
+  { key: 'lastName', label: 'שם משפחה' },
+  { key: 'email', label: 'כתובת מייל', type: 'email' },
+  { key: 'phone', label: 'טלפון' },
+  { key: 'profession', label: 'מקצוע' },
+  { key: 'experience', label: 'ניסיון טיפולי' },
+  { key: 'framework', label: 'מסגרת טיפול' },
+  { key: 'hoursPerSession', label: 'שעות הדרכה למפגש', type: 'number' },
+];
+
+// 'YYYY-MM-DD' → 'DD.MM.YYYY'
+function shortDate(dateStr) {
+  const [y, m, d] = dateStr.split('-');
+  return `${d}.${m}.${y}`;
+}
 
 function SupervisionSummaryModal({ therapist, patients, allSessions, onClose }) {
   const [exporting, setExporting] = useState(false);
@@ -75,14 +92,14 @@ function SupervisionSummaryModal({ therapist, patients, allSessions, onClose }) 
       <div className="summary-modal" onClick={e => e.stopPropagation()}>
         <div className="summary-modal-header">
           <div>
-            <h2>📊 סיכום שעות הדרכה</h2>
+            <h2>סיכום שעות הדרכה</h2>
             <div className="summary-modal-therapist">{therapist?.name}</div>
           </div>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <button className="therapist-banner-btn" onClick={handleExport} disabled={exporting} style={{ opacity: exporting ? 0.7 : 1 }}>
-              {exporting ? '⏳ מייצא...' : '⬇ ייצוא PDF'}
+            <button className="btn btn-secondary btn-sm" onClick={handleExport} disabled={exporting}>
+              {exporting ? 'מייצא...' : 'ייצוא PDF'}
             </button>
-            <button className="summary-modal-close" onClick={onClose}>✕</button>
+            <button className="summary-modal-close" aria-label="סגור" onClick={onClose}>✕</button>
           </div>
         </div>
 
@@ -120,7 +137,7 @@ function SupervisionSummaryModal({ therapist, patients, allSessions, onClose }) 
                 <div className="summary-sessions-list">
                   {row.sessionDetails.map((s, i) => (
                     <div key={s.date + i} className="summary-session-row">
-                      <span className="summary-date-chip">{s.date}</span>
+                      <span className="summary-date-chip">{shortDate(s.date)}</span>
                       {s.tags.length > 0 && (
                         <div className="summary-session-tags">
                           {s.tags.map(t => (
@@ -164,7 +181,6 @@ export default function TherapistPage() {
   const [allSessions, setAllSessions] = useState([]);
 
   const [showSummary, setShowSummary] = useState(false);
-  const [showActionsMenu, setShowActionsMenu] = useState(false);
 
   // Patient profile editing
   const [editingProfilePatient, setEditingProfilePatient] = useState(null);
@@ -334,7 +350,7 @@ export default function TherapistPage() {
     setSendingMaterials(true);
     setMaterialsError('');
     try {
-      const list = selected.map(m => `• ${m.name}: ${m.url}`).join('\n');
+      const list = formatMaterialsListHtml(selected);
       await sendMaterialsEmail({
         therapistEmail: therapist.email,
         therapistName: therapist.name || `${therapist.firstName || ''} ${therapist.lastName || ''}`.trim(),
@@ -351,12 +367,6 @@ export default function TherapistPage() {
     }
   }
 
-  const getInitials = (name) => {
-    const parts = name.trim().split(' ');
-    if (parts.length >= 2) return parts[0][0] + parts[1][0];
-    return name[0] || '?';
-  };
-
   async function handleSaveProfile() {
     if (!editingProfilePatient) return;
     setSavingProfile(true);
@@ -370,327 +380,250 @@ export default function TherapistPage() {
     }
   }
 
+  // Per patient: how many supervisions there were and the most recent one
+  const statsByPatient = {};
+  allSessions.forEach((s) => {
+    if (!s.date) return;
+    const st = statsByPatient[s.patientId] || (statsByPatient[s.patientId] = { count: 0, last: null });
+    st.count += 1;
+    if (!st.last || s.date > st.last.date) st.last = s;
+  });
+
+  function patientMeta(patientId) {
+    const st = statsByPatient[patientId];
+    if (!st) return 'עדיין אין הדרכות';
+    const count = st.count === 1 ? 'הדרכה אחת' : `${st.count} הדרכות`;
+    return `${count} · אחרונה ${shortDate(st.last.date)}`;
+  }
+
+  const meetingCount = new Set(allSessions.map(s => s.date).filter(Boolean)).size;
+  const hoursPerMeeting = parseFloat(therapist?.hoursPerSession);
+  const headMeta = [
+    therapist?.profession,
+    meetingCount === 1 ? 'מפגש הדרכה אחד' : `${meetingCount} מפגשי הדרכה`,
+    meetingCount > 0 && hoursPerMeeting > 0 && `סה"כ ${meetingCount * hoursPerMeeting} שעות`,
+  ].filter(Boolean).join(' · ');
+
+  function openDetailsEditor() {
+    setDetailsForm(Object.fromEntries(
+      [...DETAIL_FIELDS.map(f => f.key), 'generalInfo'].map(key => [key, therapist?.[key] || ''])
+    ));
+    setEditingDetails(true);
+  }
+
   return (
     <div className="page">
-      {/* BANNER */}
-      <div className="therapist-banner">
-        <div className="therapist-banner-main">
-          <button className="btn-back" onClick={() => navigate('/')}>
-            &#x2190; חזרה
+      <header className="page-head">
+        <div className="page-head-main">
+          <button className="page-head-back" onClick={() => navigate('/')}>&#x2192; כל המטפלים</button>
+          <h1>{therapist ? therapist.name : 'טוען...'}</h1>
+          <div className="page-head-meta">{headMeta}</div>
+        </div>
+        <div className="page-head-actions">
+          <button className="btn btn-secondary" aria-expanded={detailsOpen} onClick={() => setDetailsOpen(v => !v)}>
+            פרטי המטפל
           </button>
-          <div style={{ flex: 1 }}>
-            <h2>{therapist ? therapist.name : 'טוען...'}{therapist?.profession ? ` | ${therapist.profession}` : ''}</h2>
-            <div className="subtitle">
-              {(() => {
-                const uniqueDates = new Set(allSessions.map(s => s.date).filter(Boolean)).size;
-                const hours = parseFloat(therapist?.hoursPerSession);
-                if (uniqueDates > 0 && hours > 0) return `${uniqueDates} מפגשי הדרכה | סה"כ ${uniqueDates * hours} שעות`;
-                return `${uniqueDates} מפגשי הדרכה`;
-              })()}
-            </div>
-          </div>
-          <div className="therapist-banner-actions">
-            <div className="therapist-banner-unified">
-              {/* Kebab – external actions */}
-              <div style={{ position: 'relative' }}>
-                <button
-                  className="therapist-banner-kebab"
-                  onClick={() => { setShowActionsMenu(v => !v); }}
-                  title="פעולות נוספות"
-                >
-                  ⋮
-                </button>
-                {showActionsMenu && (
-                  <div className="therapist-actions-dropdown">
-                    <button className="therapist-actions-item" onClick={() => { setShowSummary(true); setShowActionsMenu(false); }}>
-                      📊 סיכום שעות הדרכה
-                    </button>
-                    <button className="therapist-actions-item" onClick={() => { setShowMaterials(v => !v); setShowActionsMenu(false); }}>
-                      📚 שלח חומרי עזר למטפל
-                    </button>
+          <button className="btn btn-secondary" onClick={() => setShowSummary(true)}>סיכום שעות</button>
+          <button className="btn btn-secondary" aria-expanded={showMaterials} onClick={() => setShowMaterials(v => !v)}>
+            שלח חומרים
+          </button>
+          <button className="btn btn-primary" onClick={() => navigate(`/supervision-session/${therapistId}`)}>
+            התחל מפגש הדרכה
+          </button>
+        </div>
+      </header>
+
+      {error && <div className="alert alert-error">{error}</div>}
+
+      {/* Therapist details */}
+      {detailsOpen && (
+        <section className="sheet">
+          <h2 className="sheet-title">פרטי המטפל</h2>
+          {!editingDetails ? (
+            <>
+              <div className="details-grid">
+                {DETAIL_FIELDS.map(f => (
+                  <div key={f.key} className="details-item">
+                    <span className="details-label">{f.label}</span>
+                    <span className={`details-value${therapist?.[f.key] ? '' : ' empty'}`}>{therapist?.[f.key] || 'לא הוזן'}</span>
                   </div>
-                )}
+                ))}
+                <div className="details-item wide">
+                  <span className="details-label">מידע כללי</span>
+                  <span className={`details-value${therapist?.generalInfo ? '' : ' empty'}`}>{therapist?.generalInfo || 'לא הוזן'}</span>
+                </div>
               </div>
-              {/* Details toggle */}
-              <button
-                className="therapist-banner-details-btn"
-                onClick={() => { setDetailsOpen(v => !v); setShowActionsMenu(false); }}
-              >
-                פרטי המטפל
-                <span className="therapist-banner-chevron">{detailsOpen ? '▲' : '▼'}</span>
-              </button>
-            </div>
-          </div>
-        </div>
-
-        {/* פרטי המטפל — פאנל נופל */}
-        {detailsOpen && (
-          <div className="therapist-details-panel">
-            {!editingDetails ? (
-              <>
-                <div className="therapist-details-grid">
-                  <div className="therapist-detail-item">
-                    <span className="therapist-detail-label">שם פרטי</span>
-                    <span className={`therapist-detail-value${!therapist?.firstName ? ' empty' : ''}`}>{therapist?.firstName || '—'}</span>
+              <button className="btn btn-secondary btn-sm" onClick={openDetailsEditor}>עריכה</button>
+            </>
+          ) : (
+            <form onSubmit={handleSaveDetails}>
+              <div className="details-grid">
+                {DETAIL_FIELDS.map(f => (
+                  <div key={f.key} className="form-group">
+                    <label htmlFor={`details-${f.key}`}>{f.label}</label>
+                    <input
+                      id={`details-${f.key}`}
+                      className="form-input"
+                      type={f.type || 'text'}
+                      {...(f.key === 'hoursPerSession' ? { step: '0.5', min: '0', placeholder: 'למשל: 1.5' } : {})}
+                      value={detailsForm[f.key]}
+                      onChange={(e) => setDetailsForm((form) => ({ ...form, [f.key]: e.target.value }))}
+                      disabled={savingDetails}
+                    />
                   </div>
-                  <div className="therapist-detail-item">
-                    <span className="therapist-detail-label">שם משפחה</span>
-                    <span className={`therapist-detail-value${!therapist?.lastName ? ' empty' : ''}`}>{therapist?.lastName || '—'}</span>
-                  </div>
-                  <div className="therapist-detail-item">
-                    <span className="therapist-detail-label">כתובת מייל</span>
-                    <span className={`therapist-detail-value${!therapist?.email ? ' empty' : ''}`}>{therapist?.email || '—'}</span>
-                  </div>
-                  <div className="therapist-detail-item">
-                    <span className="therapist-detail-label">טלפון</span>
-                    <span className={`therapist-detail-value${!therapist?.phone ? ' empty' : ''}`}>{therapist?.phone || '—'}</span>
-                  </div>
-                  <div className="therapist-detail-item">
-                    <span className="therapist-detail-label">מקצוע</span>
-                    <span className={`therapist-detail-value${!therapist?.profession ? ' empty' : ''}`}>{therapist?.profession || '—'}</span>
-                  </div>
-                  <div className="therapist-detail-item">
-                    <span className="therapist-detail-label">ניסיון טיפולי</span>
-                    <span className={`therapist-detail-value${!therapist?.experience ? ' empty' : ''}`}>{therapist?.experience || '—'}</span>
-                  </div>
-                  <div className="therapist-detail-item">
-                    <span className="therapist-detail-label">מסגרת טיפול</span>
-                    <span className={`therapist-detail-value${!therapist?.framework ? ' empty' : ''}`}>{therapist?.framework || '—'}</span>
-                  </div>
-                  <div className="therapist-detail-item">
-                    <span className="therapist-detail-label">שעות הדרכה למפגש</span>
-                    <span className={`therapist-detail-value${!therapist?.hoursPerSession ? ' empty' : ''}`}>{therapist?.hoursPerSession || '—'}</span>
-                  </div>
-                </div>
-                <div className="therapist-detail-item" style={{ marginBottom: '12px' }}>
-                  <span className="therapist-detail-label">מידע כללי</span>
-                  <span className={`therapist-detail-value${!therapist?.generalInfo ? ' empty' : ''}`}>{therapist?.generalInfo || '—'}</span>
-                </div>
-                <button className="btn btn-outline-teal btn-sm" onClick={() => {
-                  setDetailsForm({
-                    firstName: therapist?.firstName || '', lastName: therapist?.lastName || '',
-                    email: therapist?.email || '', phone: therapist?.phone || '',
-                    profession: therapist?.profession || '', experience: therapist?.experience || '',
-                    framework: therapist?.framework || '', generalInfo: therapist?.generalInfo || '',
-                    hoursPerSession: therapist?.hoursPerSession || '',
-                  });
-                  setEditingDetails(true);
-                }}>
-                  עריכה
-                </button>
-              </>
-            ) : (
-              <form className="therapist-details-edit-form" onSubmit={handleSaveDetails}>
-                <div className="therapist-details-edit-grid">
-                  <div className="form-group"><label>שם פרטי</label>
-                    <input className="form-input" type="text" value={detailsForm.firstName} onChange={(e) => setDetailsForm((f) => ({ ...f, firstName: e.target.value }))} disabled={savingDetails} />
-                  </div>
-                  <div className="form-group"><label>שם משפחה</label>
-                    <input className="form-input" type="text" value={detailsForm.lastName} onChange={(e) => setDetailsForm((f) => ({ ...f, lastName: e.target.value }))} disabled={savingDetails} />
-                  </div>
-                  <div className="form-group"><label>כתובת מייל</label>
-                    <input className="form-input" type="email" value={detailsForm.email} onChange={(e) => setDetailsForm((f) => ({ ...f, email: e.target.value }))} disabled={savingDetails} />
-                  </div>
-                  <div className="form-group"><label>טלפון</label>
-                    <input className="form-input" type="text" value={detailsForm.phone} onChange={(e) => setDetailsForm((f) => ({ ...f, phone: e.target.value }))} disabled={savingDetails} />
-                  </div>
-                  <div className="form-group"><label>מקצוע</label>
-                    <input className="form-input" type="text" value={detailsForm.profession} onChange={(e) => setDetailsForm((f) => ({ ...f, profession: e.target.value }))} disabled={savingDetails} />
-                  </div>
-                  <div className="form-group"><label>ניסיון טיפולי</label>
-                    <input className="form-input" type="text" value={detailsForm.experience} onChange={(e) => setDetailsForm((f) => ({ ...f, experience: e.target.value }))} disabled={savingDetails} />
-                  </div>
-                  <div className="form-group"><label>מסגרת טיפול</label>
-                    <input className="form-input" type="text" value={detailsForm.framework} onChange={(e) => setDetailsForm((f) => ({ ...f, framework: e.target.value }))} disabled={savingDetails} />
-                  </div>
-                  <div className="form-group"><label>שעות הדרכה למפגש</label>
-                    <input className="form-input" type="number" step="0.5" min="0" placeholder="למשל: 1.5" value={detailsForm.hoursPerSession} onChange={(e) => setDetailsForm((f) => ({ ...f, hoursPerSession: e.target.value }))} disabled={savingDetails} />
-                  </div>
-                </div>
-                <div className="form-group"><label>מידע כללי</label>
-                  <textarea className="form-input focus-area-textarea" value={detailsForm.generalInfo} onChange={(e) => setDetailsForm((f) => ({ ...f, generalInfo: e.target.value }))} disabled={savingDetails} rows={3} />
-                </div>
-                <div style={{ display: 'flex', gap: '10px' }}>
-                  <button type="submit" className="btn btn-primary btn-sm" disabled={savingDetails}>{savingDetails ? 'שומר...' : 'שמור'}</button>
-                  <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingDetails(false)} disabled={savingDetails}>ביטול</button>
-                </div>
-              </form>
-            )}
-          </div>
-        )}
-
-        {/* חומרי עזר — פאנל נופל */}
-        {showMaterials && (() => {
-          const cats = ['הכל', ...([...new Set(materials.map(m => m.category).filter(Boolean))].sort())];
-          const txt = materialSearch.trim().toLowerCase();
-          const filtered = materials.filter(m => {
-            const matchCat = materialCatFilter === 'הכל' || m.category === materialCatFilter;
-            const matchTxt = !txt ||
-              m.name?.toLowerCase().includes(txt) ||
-              m.description?.toLowerCase().includes(txt) ||
-              m.tags?.some(t => t.toLowerCase().includes(txt));
-            return matchCat && matchTxt;
-          });
-          const selectedCount = Object.values(selectedMaterials).filter(Boolean).length;
-          return (
-            <div className="therapist-details-panel">
-              {materialsError && <div className="alert alert-error">⚠️ {materialsError}</div>}
-              {materialsSent && <div className="alert alert-success">✅ החומרים נשלחו בהצלחה!</div>}
-              {materials.length === 0 ? (
-                <div className="focus-area-empty">אין חומרים בספרייה. הוסף חומרים מהדף הראשי.</div>
-              ) : (
-                <>
-                  <input
-                    className="materials-search-input"
-                    type="text"
-                    placeholder="🔍 חיפוש לפי שם, תיאור או תגית..."
-                    value={materialSearch}
-                    onChange={e => setMaterialSearch(e.target.value)}
-                    style={{ marginBottom: '10px', width: '100%' }}
-                  />
-                  <div className="mat-cat-filter-row">
-                    {cats.map(cat => (
-                      <button
-                        key={cat}
-                        className={`mat-cat-pill${materialCatFilter === cat ? ' active' : ''}`}
-                        onClick={() => setMaterialCatFilter(cat)}
-                      >
-                        {cat}
-                      </button>
-                    ))}
-                  </div>
-                  <div style={{ color: 'var(--text-secondary)', fontSize: '0.85rem', margin: '8px 0' }}>
-                    {selectedCount > 0 ? `נבחרו ${selectedCount} חומרים` : 'סמן חומרים לשליחה:'}
-                  </div>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '16px' }}>
-                    {filtered.length === 0
-                      ? <div className="focus-area-empty">לא נמצאו חומרים.</div>
-                      : filtered.map(m => (
-                        <label key={m.id} className="mat-send-row">
-                          <input type="checkbox" checked={!!selectedMaterials[m.id]} onChange={e => setSelectedMaterials(prev => ({ ...prev, [m.id]: e.target.checked }))} />
-                          <div style={{ flex: 1 }}>
-                            <div style={{ fontWeight: 600, fontSize: '0.92rem' }}>{m.name}</div>
-                            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginTop: '3px' }}>
-                              <span className="mat-send-cat">{m.category}</span>
-                              {m.tags?.map(t => <span key={t} className="mat-send-tag">{t}</span>)}
-                            </div>
-                          </div>
-                        </label>
-                      ))
-                    }
-                  </div>
-                  <button className="btn btn-primary btn-sm" onClick={handleSendMaterials} disabled={sendingMaterials || selectedCount === 0 || !therapist?.email}>
-                    {sendingMaterials ? '⏳ שולח...' : `📧 שלח ${selectedCount > 0 ? `(${selectedCount})` : ''} למטפל`}
-                  </button>
-                  {!therapist?.email && <div style={{ marginTop: '8px', color: 'var(--danger)', fontSize: '0.85rem' }}>⚠️ יש להוסיף כתובת מייל בפרטי המטפל לפני השליחה.</div>}
-                </>
-              )}
-            </div>
-          );
-        })()}
-      </div>
-
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
-
-      <div className="section">
-        <div className="sup-session-launch-banner">
-          <div className="sup-session-launch-info">
-            <span className="sup-session-launch-icon">🎯</span>
-            <div>
-              <div className="sup-session-launch-title">מפגש הדרכה</div>
-              <div className="sup-session-launch-sub">כתיבה מהירה עבור כל המטופלים במפגש אחד</div>
-            </div>
-          </div>
-          <button
-            className="btn btn-primary"
-            onClick={() => navigate(`/supervision-session/${therapistId}`)}
-          >
-            ▶ התחל מפגש הדרכה
-          </button>
-        </div>
-
-        <div className="section-title">
-          🧑‍⚕️ מטופלים
-          <button
-            className="btn btn-primary btn-sm"
-            style={{ marginRight: 'auto' }}
-            onClick={() => setShowAddForm((v) => !v)}
-          >
-            {showAddForm ? '✕ סגור' : '+ הוסף מטופל'}
-          </button>
-        </div>
-
-        {showAddForm && (
-          <div className="add-form">
-            <form onSubmit={handleAddPatient}>
-              <div className="add-form-row">
-                <div className="form-group">
-                  <label htmlFor="patient-name">שם המטופל</label>
-                  <input
-                    id="patient-name"
-                    className="form-input"
-                    type="text"
-                    placeholder="הזן שם מלא..."
-                    value={newPatientName}
-                    onChange={(e) => setNewPatientName(e.target.value)}
-                    autoFocus
-                    disabled={adding}
+                ))}
+                <div className="form-group details-item wide">
+                  <label htmlFor="details-generalInfo">מידע כללי</label>
+                  <textarea
+                    id="details-generalInfo"
+                    className="sup-field-textarea"
+                    rows={3}
+                    value={detailsForm.generalInfo}
+                    onChange={(e) => setDetailsForm((form) => ({ ...form, generalInfo: e.target.value }))}
+                    disabled={savingDetails}
                   />
                 </div>
-                <button
-                  type="submit"
-                  className="btn btn-primary"
-                  disabled={adding || !newPatientName.trim()}
-                >
-                  {adding ? 'מוסיף...' : 'הוסף'}
-                </button>
+              </div>
+              <div className="details-actions">
+                <button type="submit" className="btn btn-primary btn-sm" disabled={savingDetails}>{savingDetails ? 'שומר...' : 'שמור'}</button>
+                <button type="button" className="btn btn-secondary btn-sm" onClick={() => setEditingDetails(false)} disabled={savingDetails}>ביטול</button>
               </div>
             </form>
-          </div>
-        )}
+          )}
+        </section>
+      )}
 
-        {loading ? (
-          <div className="loading-wrapper">
-            <div className="spinner" />
-            <span>טוען נתונים...</span>
-          </div>
-        ) : patients.length === 0 ? (
-          <div className="empty-state">
-            <div className="empty-state-icon">🧑‍⚕️</div>
-            <p>אין מטופלים עדיין. הוסף מטופל ראשון.</p>
-          </div>
-        ) : (
-          <div className="card-list">
-            {patients.map((p) => (
-              <div
-                key={p.id}
-                className="card card-clickable"
-                onClick={() => navigate(`/patient/${p.id}`)}
-              >
-                <div className="card-icon">{getInitials(p.name)}</div>
-                <div className="card-body">
-                  <div className="card-title">{p.name}</div>
-                  <div className="card-meta">לחץ לצפייה בהדרכות</div>
+      {/* Send materials to the therapist */}
+      {showMaterials && (() => {
+        const cats = ['הכל', ...([...new Set(materials.map(m => m.category).filter(Boolean))].sort())];
+        const txt = materialSearch.trim().toLowerCase();
+        const filtered = materials.filter(m => {
+          const matchCat = materialCatFilter === 'הכל' || m.category === materialCatFilter;
+          const matchTxt = !txt ||
+            m.name?.toLowerCase().includes(txt) ||
+            m.description?.toLowerCase().includes(txt) ||
+            m.tags?.some(t => t.toLowerCase().includes(txt));
+          return matchCat && matchTxt;
+        });
+        const selectedCount = Object.values(selectedMaterials).filter(Boolean).length;
+        return (
+          <section className="sheet">
+            <h2 className="sheet-title">שליחת חומרים למטפל</h2>
+            {materialsError && <div className="alert alert-error">{materialsError}</div>}
+            {materialsSent && <div className="alert alert-success">החומרים נשלחו.</div>}
+            {materials.length === 0 ? (
+              <div className="send-hint">אין עדיין חומרים בספרייה. אפשר להוסיף חומרים בספריית החומרים שבמסך הבית.</div>
+            ) : (
+              <>
+                <input
+                  className="form-input"
+                  type="search"
+                  aria-label="חיפוש חומרים"
+                  placeholder="חיפוש לפי שם, תיאור או תגית"
+                  value={materialSearch}
+                  onChange={e => setMaterialSearch(e.target.value)}
+                />
+                <div className="mat-cat-filter-row">
+                  {cats.map(cat => (
+                    <button
+                      key={cat}
+                      className={`mat-cat-pill${materialCatFilter === cat ? ' active' : ''}`}
+                      onClick={() => setMaterialCatFilter(cat)}
+                    >
+                      {cat}
+                    </button>
+                  ))}
                 </div>
-                <div className="card-actions" onClick={(e) => e.stopPropagation()}>
-                  <button
-                    className="btn btn-secondary btn-sm"
-                    onClick={() => { setProfileDraft(p.background || ''); setEditingProfilePatient(p); }}
-                  >
-                    📋 פרופיל
-                  </button>
-                  <button
-                    className="btn btn-danger btn-sm"
-                    onClick={() => setConfirmDelete(p)}
-                  >
-                    🗑 מחק
-                  </button>
+                <div className="send-hint">
+                  {selectedCount > 0 ? `נבחרו ${selectedCount} חומרים` : 'סמן חומרים לשליחה'}
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
+                <div className="send-list">
+                  {filtered.length === 0
+                    ? <div className="send-hint">לא נמצאו חומרים התואמים לחיפוש.</div>
+                    : filtered.map(m => (
+                      <label key={m.id} className="mat-send-row">
+                        <input type="checkbox" checked={!!selectedMaterials[m.id]} onChange={e => setSelectedMaterials(prev => ({ ...prev, [m.id]: e.target.checked }))} />
+                        <div>
+                          <div className="send-row-name">{m.name}</div>
+                          <div className="send-row-tags">
+                            <span className="mat-send-cat">{m.category}</span>
+                            {m.tags?.map(t => <span key={t} className="mat-send-tag">{t}</span>)}
+                          </div>
+                        </div>
+                      </label>
+                    ))
+                  }
+                </div>
+                <button className="btn btn-primary btn-sm" onClick={handleSendMaterials} disabled={sendingMaterials || selectedCount === 0 || !therapist?.email}>
+                  {sendingMaterials ? 'שולח...' : selectedCount > 0 ? `שלח ${selectedCount} חומרים במייל` : 'שלח במייל'}
+                </button>
+                {!therapist?.email && <div className="send-hint danger">כדי לשלוח, הוסף כתובת מייל בפרטי המטפל.</div>}
+              </>
+            )}
+          </section>
+        );
+      })()}
+
+      <div className="list-head">
+        <h2>מטופלים</h2>
+        <button className="btn btn-secondary btn-sm" onClick={() => setShowAddForm((v) => !v)}>
+          {showAddForm ? 'סגור' : 'הוסף מטופל'}
+        </button>
       </div>
+
+      {showAddForm && (
+        <div className="add-form">
+          <form onSubmit={handleAddPatient}>
+            <div className="add-form-row">
+              <div className="form-group">
+                <label htmlFor="patient-name">שם המטופל או ראשי תיבות</label>
+                <input
+                  id="patient-name"
+                  className="form-input"
+                  type="text"
+                  value={newPatientName}
+                  onChange={(e) => setNewPatientName(e.target.value)}
+                  autoFocus
+                  disabled={adding}
+                />
+              </div>
+              <button type="submit" className="btn btn-primary" disabled={adding || !newPatientName.trim()}>
+                {adding ? 'מוסיף...' : 'הוסף'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {loading ? (
+        <ul className="ruled-list" aria-busy="true">
+          {[0, 1, 2].map(i => <li key={i} className="ruled-skeleton"><i /><i /></li>)}
+        </ul>
+      ) : patients.length === 0 ? (
+        <div className="empty-state">
+          <p>למטפל זה עדיין אין מטופלים. הוסף מטופל, ואז אפשר להתחיל מפגש הדרכה.</p>
+        </div>
+      ) : (
+        <ul className="ruled-list">
+          {patients.map((p) => (
+            <li key={p.id} className="ruled-row">
+              <button className="ruled-row-main" onClick={() => navigate(`/patient/${p.id}`)}>
+                <span className="ruled-row-name">{p.name}</span>
+                <span className="ruled-row-meta">{patientMeta(p.id)}</span>
+              </button>
+              {statsByPatient[p.id]?.last.notes?.danger && (
+                <span className="ruled-row-flag">מסוכנות במפגש האחרון</span>
+              )}
+              <div className="ruled-row-actions">
+                <button className="link-btn" onClick={() => { setProfileDraft(p.background || ''); setEditingProfilePatient(p); }}>
+                  פרופיל
+                </button>
+                <button className="link-btn danger" onClick={() => setConfirmDelete(p)}>מחק</button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {confirmDelete && (
         <ConfirmDialog
@@ -702,21 +635,20 @@ export default function TherapistPage() {
 
       {editingProfilePatient && (
         <div className="confirm-overlay" onClick={() => setEditingProfilePatient(null)}>
-          <div className="confirm-dialog" style={{ maxWidth: 520, width: '90%' }} onClick={e => e.stopPropagation()}>
-            <h3>📋 פרופיל מטופל — {editingProfilePatient.name}</h3>
-            <p style={{ color: '#6b7280', fontSize: '0.88rem', marginTop: 0 }}>
-              מידע זה יוצג בכל מפגש הדרכה עתידי כ"רקע קבוע".
-            </p>
+          <div className="confirm-dialog sup-review-dialog" onClick={e => e.stopPropagation()}>
+            <h3>פרופיל מטופל: {editingProfilePatient.name}</h3>
+            <p>הפרופיל מוצג בראש מסך המפגש בכל הדרכה על המטופל.</p>
             <textarea
               className="sup-profile-textarea"
-              style={{ width: '100%', minHeight: 160, marginBottom: 12 }}
+              rows={7}
+              aria-label="פרופיל המטופל"
               value={profileDraft}
               onChange={e => setProfileDraft(e.target.value)}
-              placeholder="אבחנה, מטרות טיפוליות, רקע רלוונטי..."
+              placeholder="אבחנה, מטרות טיפוליות, רקע רלוונטי"
             />
-            <div className="confirm-dialog-actions">
+            <div className="confirm-dialog-actions" style={{ marginTop: 16 }}>
               <button className="btn btn-primary" onClick={handleSaveProfile} disabled={savingProfile}>
-                {savingProfile ? '⏳ שומר...' : '💾 שמור'}
+                {savingProfile ? 'שומר...' : 'שמור'}
               </button>
               <button className="btn btn-secondary" onClick={() => setEditingProfilePatient(null)}>
                 ביטול

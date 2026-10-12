@@ -254,30 +254,23 @@ export default function SessionPage() {
 
   return (
     <div className="page">
-      <div className="page-header">
-        <button
-          className="btn-back"
-          onClick={() => navigate(patientId ? `/patient/${patientId}` : '/')}
-        >
-          &#x2190; חזרה
-        </button>
-        <div>
-          <h2>
-            {loading ? 'טוען...' : `הדרכה${date ? ` – ${formatDate(date)}` : ''}`}
-          </h2>
-          <div className="subtitle">
-            {patient && therapist
-              ? `${patient.name} | מטפל: ${therapist.name}`
-              : patient ? patient.name : ''}
+      <header className="page-head">
+        <div className="page-head-main">
+          <button className="page-head-back" onClick={() => navigate(patientId ? `/patient/${patientId}` : '/')}>
+            &#x2192; {patient ? patient.name : 'חזרה'}
+          </button>
+          <h1>{loading ? 'טוען...' : `הדרכה${date ? `, ${formatDate(date)}` : ''}`}</h1>
+          <div className="page-head-meta">
+            {patient && therapist ? `${patient.name} · מטפל: ${therapist.name}` : patient ? patient.name : ''}
           </div>
         </div>
-      </div>
+      </header>
 
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
-      {saveSuccess && <div className="alert alert-success">✅ ההדרכה נשמרה בהצלחה!</div>}
+      {error && <div className="alert alert-error">{error}</div>}
+      {saveSuccess && <div className="alert alert-success">ההדרכה נשמרה.</div>}
 
       {loading ? (
-        <div className="loading-wrapper"><div className="spinner" /><span>טוען הדרכה...</span></div>
+        <div className="sheet" aria-busy="true"><div className="sup-skeleton" /><div className="sup-skeleton" /><div className="sup-skeleton short" /></div>
       ) : (
         <div className="session-form">
           <div className="session-date-section">
@@ -307,7 +300,7 @@ export default function SessionPage() {
                   <div className="session-field-body">
                     <textarea
                       className="focus-area-textarea"
-                      placeholder={`הערות בנושא "${fa.label}"...`}
+                      placeholder={`הערות בנושא "${fa.label}"`}
                       value={notes[fa.key] || ''}
                       onChange={(e) => handleNoteChange(fa.key, e.target.value)}
                       rows={4}
@@ -320,7 +313,7 @@ export default function SessionPage() {
                         disabled={aiLoading[fa.key]}
                         title="נסח מחדש עם AI"
                       >
-                        {aiLoading[fa.key] ? '⏳ מנסח...' : '✨ נסח מחדש'}
+                        {aiLoading[fa.key] ? 'מנסח...' : 'נסח מחדש'}
                       </button>
                     )}
                   </div>
@@ -354,7 +347,7 @@ export default function SessionPage() {
                         <div className="session-field-body">
                           <textarea
                             className="focus-area-textarea"
-                            placeholder={`הערות בנושא "${fa.label}"...`}
+                            placeholder={`הערות בנושא "${fa.label}"`}
                             value={notes[fa.key] || ''}
                             onChange={(e) => handleNoteChange(fa.key, e.target.value)}
                             rows={4}
@@ -366,7 +359,7 @@ export default function SessionPage() {
                               disabled={aiLoading[fa.key]}
                               title="נסח מחדש עם AI"
                             >
-                              {aiLoading[fa.key] ? '⏳ מנסח...' : '✨ נסח מחדש'}
+                              {aiLoading[fa.key] ? 'מנסח...' : 'נסח מחדש'}
                             </button>
                           )}
                         </div>
@@ -380,21 +373,21 @@ export default function SessionPage() {
 
           <div className="session-actions">
             <button className="btn btn-primary" onClick={handleSave} disabled={saving} style={{ minWidth: '120px' }}>
-              {saving ? '⏳ שומר...' : '💾 שמור'}
+              {saving ? 'שומר...' : 'שמור'}
             </button>
             <button
               className="btn btn-ai"
               onClick={handleRecommendations}
               disabled={aiRecsLoading}
             >
-              {aiRecsLoading ? '⏳ מייצר המלצות...' : '💡 המלצות טיפוליות'}
+              {aiRecsLoading ? 'מייצר המלצות...' : 'המלצות טיפוליות'}
             </button>
             <button
               className="btn btn-ai"
               onClick={handleGenerateSummary}
               disabled={summaryLoading}
             >
-              {summaryLoading ? '⏳ מייצר סיכום...' : '📋 סיכום פגישה'}
+              {summaryLoading ? 'מייצר סיכום...' : 'סיכום פגישה'}
             </button>
             <button className="btn btn-secondary" onClick={() => navigate(patientId ? `/patient/${patientId}` : '/')}>
               חזרה למטופל
@@ -404,8 +397,8 @@ export default function SessionPage() {
           {aiRecommendations && (
             <div className="ai-recommendations-box">
               <div className="ai-recommendations-header">
-                <span>💡 המלצות טיפוליות</span>
-                <button className="ai-recommendations-close" onClick={() => setAiRecommendations('')}>✕</button>
+                <span>המלצות טיפוליות</span>
+                <button className="ai-recommendations-close" aria-label="סגור" onClick={() => setAiRecommendations('')}>✕</button>
               </div>
               <div className="ai-recommendations-content">{aiRecommendations}</div>
             </div>
@@ -414,8 +407,8 @@ export default function SessionPage() {
           {(sessionSummary || summaryLoading) && (
             <div className="session-summary-box">
               <div className="session-summary-header">
-                <span>📋 סיכום פגישה</span>
-                <button className="ai-recommendations-close" onClick={() => setSessionSummary('')}>✕</button>
+                <span>סיכום פגישה</span>
+                <button className="ai-recommendations-close" aria-label="סגור" onClick={() => setSessionSummary('')}>✕</button>
               </div>
               <textarea
                 className="session-summary-textarea"
@@ -423,7 +416,7 @@ export default function SessionPage() {
                 onChange={(e) => setSessionSummary(e.target.value)}
                 onBlur={handleSaveSummary}
                 rows={5}
-                placeholder="הסיכום יופיע כאן..."
+                placeholder="הסיכום יופיע כאן"
                 disabled={summaryLoading}
               />
             </div>

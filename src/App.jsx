@@ -33,12 +33,12 @@ function AppHeader() {
       <div className="app-header-actions">
         {!isHome && (
           <button className="app-header-home-btn" onClick={() => navigate('/')}>
-            🏠 מסך בית
+            מסך בית
           </button>
         )}
         {user && (
           <button className="app-header-logout-btn" onClick={logout} title={user.email}>
-            🚪 יציאה
+            יציאה
           </button>
         )}
       </div>
@@ -71,7 +71,7 @@ function LoginScreen() {
         />
         <div className="login-title">מעקב הדרכות CBT</div>
         <div className="login-subtitle">דן ברזילי, פסיכולוג חינוכי</div>
-        {error && <div className="alert alert-error" style={{ width: '100%', textAlign: 'center' }}>⚠️ {error}</div>}
+        {error && <div className="alert alert-error" style={{ width: '100%', textAlign: 'center' }}>{error}</div>}
         <button className="btn btn-google" onClick={handleLogin}>
           <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" width="20" />
           התחבר עם Google

@@ -2,412 +2,100 @@ import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import { FOCUS_AREAS } from '../constants.js';
 
-/**
- * Format a YYYY-MM-DD date string to a Hebrew locale date string.
- */
-function formatDate(dateStr) {
+// The documents share the app's palette, written out because they render
+// off-screen and are then rasterised.
+const INK = '#132a30';
+const INK_2 = '#44595f';
+const RULE = '#9cc9ea';
+const RULE_SOFT = '#d9eaf6';
+const RISK = '#c2362b';
+const PAGE_WIDTH_PX = 750;
+
+const TAG_LABELS = {
+  motivation: 'מוטיבציה', treatmentGoals: 'מטרות טיפול',
+  interventionTech: 'טכניקות התערבות', theoreticalKnow: 'ידע תיאורטי',
+  treatmentPlanning: 'תכנון טיפול', homework: 'שיעורי בית', conceptualization: 'המשגה',
+};
+
+function escapeHtml(value) {
+  return String(value ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+// 'YYYY-MM-DD' → 'DD.MM.YYYY'
+function shortDate(dateStr) {
   if (!dateStr) return '';
-  try {
-    const [y, m, d] = dateStr.split('-');
-    return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('he-IL', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    });
-  } catch {
-    return dateStr;
-  }
+  const [y, m, d] = dateStr.split('-');
+  return `${d}.${m}.${y}`;
+}
+
+function todayLabel() {
+  return new Date().toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+function safeFileName(name) {
+  return name.replace(/[^a-zA-Z֐-׿\s]/g, '').trim().replace(/\s+/g, '_');
 }
 
 /**
- * Build an HTML element containing all session data, styled for PDF export.
- * Returns a DOM element (not appended to document).
+ * The page every exported document starts from: letterhead, title and a line
+ * of facts. Blocks appended to it carry `data-block`, so page breaks fall
+ * between blocks instead of through a line of text.
  */
-function buildPDFElement({ patientName, therapistName, sessions }) {
+function buildDocument({ title, facts }) {
   const container = document.createElement('div');
   container.style.cssText = [
     'direction: rtl',
-    'font-family: Arial, Helvetica, sans-serif',
-    'font-size: 13px',
-    'line-height: 1.7',
-    'color: #1a202c',
+    "font-family: 'Heebo Variable', Heebo, Arial, sans-serif",
+    'font-size: 15px',
+    'line-height: 1.6',
+    `color: ${INK}`,
     'background: #ffffff',
-    'padding: 32px 40px',
-    'width: 750px',
+    'padding: 28px 40px 32px',
+    `width: ${PAGE_WIDTH_PX}px`,
     'box-sizing: border-box',
   ].join('; ');
 
-  // Header
-  const header = document.createElement('div');
-  header.style.cssText = [
-    'background: linear-gradient(135deg, #234e52 0%, #2c7a7b 100%)',
-    'color: white',
-    'padding: 24px 28px',
-    'border-radius: 10px',
-    'margin-bottom: 28px',
-  ].join('; ');
-
-  const title = document.createElement('h1');
-  title.style.cssText = 'margin: 0 0 6px 0; font-size: 20px; font-weight: 700;';
-  title.textContent = `מעקב הדרכות CBT – ${patientName}`;
-
-  const sub = document.createElement('p');
-  sub.style.cssText = 'margin: 0; font-size: 14px; opacity: 0.88;';
-  sub.textContent = `מטפל: ${therapistName}  |  מספר הדרכות: ${sessions.length}`;
-
-  header.appendChild(title);
-  header.appendChild(sub);
-  container.appendChild(header);
-
-  if (sessions.length === 0) {
-    const empty = document.createElement('p');
-    empty.style.cssText = 'color: #718096; text-align: center; padding: 40px;';
-    empty.textContent = 'אין הדרכות לייצוא.';
-    container.appendChild(empty);
-    return container;
-  }
-
-  sessions.forEach((session, sIdx) => {
-    const filledAreas = FOCUS_AREAS.filter(
-      (fa) => session.notes && session.notes[fa.key] && session.notes[fa.key].trim()
-    );
-
-    const sessionBlock = document.createElement('div');
-    sessionBlock.style.cssText = [
-      'margin-bottom: 28px',
-      'page-break-inside: avoid',
-      'background: #f8fffe',
-      'border: 1px solid #b2f5ea',
-      'border-radius: 8px',
-      'overflow: hidden',
-    ].join('; ');
-
-    // Session header
-    const sessionHeader = document.createElement('div');
-    sessionHeader.style.cssText = [
-      'background: #e6fffa',
-      'border-bottom: 1px solid #b2f5ea',
-      'padding: 12px 18px',
-      'display: flex',
-      'align-items: center',
-      'gap: 12px',
-    ].join('; ');
-
-    const sessionNum = document.createElement('span');
-    sessionNum.style.cssText = [
-      'background: #2c7a7b',
-      'color: white',
-      'border-radius: 50%',
-      'width: 26px',
-      'height: 26px',
-      'display: inline-flex',
-      'align-items: center',
-      'justify-content: center',
-      'font-size: 12px',
-      'font-weight: 700',
-      'flex-shrink: 0',
-    ].join('; ');
-    sessionNum.textContent = String(sIdx + 1);
-
-    const sessionTitle = document.createElement('h2');
-    sessionTitle.style.cssText = [
-      'margin: 0',
-      'font-size: 15px',
-      'font-weight: 700',
-      'color: #234e52',
-      'flex: 1',
-    ].join('; ');
-    sessionTitle.textContent = `הדרכה ${sIdx + 1} – ${formatDate(session.date)}`;
-
-    sessionHeader.appendChild(sessionNum);
-    sessionHeader.appendChild(sessionTitle);
-    sessionBlock.appendChild(sessionHeader);
-
-    if (filledAreas.length === 0) {
-      const noContent = document.createElement('p');
-      noContent.style.cssText = 'padding: 12px 18px; color: #718096; font-style: italic; margin: 0;';
-      noContent.textContent = 'אין תוכן בהדרכה זו.';
-      sessionBlock.appendChild(noContent);
-    } else {
-      const areasContainer = document.createElement('div');
-      areasContainer.style.padding = '16px 18px';
-
-      filledAreas.forEach((fa, faIdx) => {
-        const areaBlock = document.createElement('div');
-        areaBlock.style.cssText = [
-          'margin-bottom: 14px',
-          faIdx < filledAreas.length - 1 ? 'padding-bottom: 14px; border-bottom: 1px dashed #bee3f8' : '',
-        ].join('; ');
-
-        const areaTitle = document.createElement('h3');
-        areaTitle.style.cssText = [
-          'margin: 0 0 5px 0',
-          'font-size: 13px',
-          'font-weight: 700',
-          'color: #2c7a7b',
-          'display: flex',
-          'align-items: center',
-          'gap: 6px',
-        ].join('; ');
-        areaTitle.textContent = `▪ ${fa.label}`;
-
-        const areaContent = document.createElement('p');
-        areaContent.style.cssText = [
-          'margin: 0',
-          'font-size: 13px',
-          'color: #2d3748',
-          'white-space: pre-wrap',
-          'line-height: 1.7',
-          'padding-right: 14px',
-        ].join('; ');
-        areaContent.textContent = session.notes[fa.key].trim();
-
-        areaBlock.appendChild(areaTitle);
-        areaBlock.appendChild(areaContent);
-        areasContainer.appendChild(areaBlock);
-      });
-
-      sessionBlock.appendChild(areasContainer);
-    }
-
-    container.appendChild(sessionBlock);
-  });
-
-  // Footer
-  const footer = document.createElement('div');
-  footer.style.cssText = [
-    'margin-top: 24px',
-    'padding-top: 16px',
-    'border-top: 1px solid #e2e8f0',
-    'font-size: 11px',
-    'color: #a0aec0',
-    'text-align: center',
-  ].join('; ');
-  const exportDate = new Date().toLocaleDateString('he-IL', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  });
-  footer.textContent = `הופק ב-${exportDate} | מעקב הדרכות CBT`;
-  container.appendChild(footer);
-
+  container.innerHTML = `
+    <div data-block style="display:flex;align-items:center;gap:14px;padding-bottom:14px;border-bottom:2px solid ${RULE};">
+      <img src="${import.meta.env.BASE_URL}logo.png" alt="" style="height:54px;" />
+      <div>
+        <div style="font-size:17px;font-weight:700;">דן ברזילי, פסיכולוג חינוכי</div>
+        <div style="font-size:13px;color:${INK_2};">מומחה ומדריך בטיפול ב- CBT</div>
+      </div>
+    </div>
+    <div data-block style="padding:22px 0 14px;">
+      <h1 style="margin:0;font-size:22px;font-weight:700;line-height:1.3;">${escapeHtml(title)}</h1>
+      <div style="font-size:13px;color:${INK_2};margin-top:2px;">${facts.filter(Boolean).map(escapeHtml).join(' · ')}</div>
+    </div>
+  `;
   return container;
 }
 
-/**
- * Export patient supervision sessions as a PDF using html2canvas + jsPDF.
- * @param {object} params
- * @param {string} params.patientName
- * @param {string} params.therapistName
- * @param {Array}  params.sessions - sorted ascending by date
- */
-export async function exportPatientPDF({ patientName, therapistName, sessions }) {
-  // Build the HTML element
-  const element = buildPDFElement({ patientName, therapistName, sessions });
+function addBlock(container, html, style = '') {
+  const block = document.createElement('div');
+  block.setAttribute('data-block', '');
+  block.style.cssText = style;
+  block.innerHTML = html;
+  container.appendChild(block);
+  return block;
+}
 
-  // Attach to document temporarily (off-screen) so it renders properly
-  element.style.position = 'fixed';
-  element.style.top = '-9999px';
-  element.style.left = '-9999px';
-  element.style.zIndex = '-1';
-  document.body.appendChild(element);
-
-  try {
-    // Render to canvas using html2canvas
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      width: 750,
-      windowWidth: 750,
-      logging: false,
-    });
-
-    const imgData = canvas.toDataURL('image/png');
-
-    // A4 dimensions in mm
-    const pageWidth = 210;
-    const pageHeight = 297;
-    const margin = 10; // mm
-    const contentWidth = pageWidth - margin * 2;
-
-    // Calculate image dimensions
-    const imgWidthPx = canvas.width;
-    const imgHeightPx = canvas.height;
-    const ratio = imgHeightPx / imgWidthPx;
-    const imgWidthMm = contentWidth;
-    const imgHeightMm = contentWidth * ratio;
-
-    const doc = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4',
-    });
-
-    // How many pages do we need?
-    const contentHeightPerPage = pageHeight - margin * 2;
-    const totalPages = Math.ceil(imgHeightMm / contentHeightPerPage);
-
-    for (let page = 0; page < totalPages; page++) {
-      if (page > 0) doc.addPage();
-
-      // Calculate the portion of the image to show on this page
-      const srcY = page * contentHeightPerPage;
-      const remainingHeight = imgHeightMm - srcY;
-      const sliceHeightMm = Math.min(contentHeightPerPage, remainingHeight);
-
-      // In pixels
-      const pxPerMm = imgWidthPx / imgWidthMm;
-      const srcYPx = Math.round(srcY * pxPerMm);
-      const sliceHeightPx = Math.round(sliceHeightMm * pxPerMm);
-
-      // Create a slice canvas
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = imgWidthPx;
-      sliceCanvas.height = sliceHeightPx;
-      const ctx = sliceCanvas.getContext('2d');
-      ctx.drawImage(canvas, 0, srcYPx, imgWidthPx, sliceHeightPx, 0, 0, imgWidthPx, sliceHeightPx);
-
-      const sliceData = sliceCanvas.toDataURL('image/png');
-      doc.addImage(sliceData, 'PNG', margin, margin, imgWidthMm, sliceHeightMm);
-    }
-
-    // Add page numbers
-    const totalPagesCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= totalPagesCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(9);
-      doc.setTextColor(160, 174, 192);
-      doc.text(`${i} / ${totalPagesCount}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
-    }
-
-    const safeName = patientName.replace(/[^a-zA-Z\u0590-\u05FF\s]/g, '').trim().replace(/\s+/g, '_');
-    doc.save(`הדרכות_${safeName}.pdf`);
-  } finally {
-    document.body.removeChild(element);
-  }
+function labelled(label, text, color = INK) {
+  return `
+    ${label ? `<div style="font-size:13px;font-weight:700;color:${color};margin-top:8px;">${escapeHtml(label)}</div>` : ''}
+    <div style="white-space:pre-wrap;">${escapeHtml(text.trim())}</div>
+  `;
 }
 
 /**
- * Export supervision hours summary for a therapist as PDF.
+ * Rasterise a built document and save it as an A4 PDF, breaking pages at
+ * block boundaries.
  */
-export async function exportSummaryPDF({ therapist, patientRows, uniqueDates, totalHours }) {
-  const therapistName = therapist?.name || '';
-  const hoursPerSession = parseFloat(therapist?.hoursPerSession) || 0;
-  const exportDate = new Date().toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
-
-  const container = document.createElement('div');
-  container.style.cssText = [
-    'direction: rtl',
-    'font-family: Arial, Helvetica, sans-serif',
-    'font-size: 13px',
-    'line-height: 1.7',
-    'color: #1a202c',
-    'background: #ffffff',
-    'padding: 32px 40px',
-    'width: 750px',
-    'box-sizing: border-box',
-  ].join('; ');
-
-  // Header
-  const header = document.createElement('div');
-  header.style.cssText = [
-    'background: linear-gradient(135deg, #4a90a8 0%, #7ab8cc 100%)',
-    'color: white',
-    'padding: 24px 28px',
-    'border-radius: 10px',
-    'margin-bottom: 24px',
-  ].join('; ');
-  header.innerHTML = `
-    <h1 style="margin:0 0 4px;font-size:20px;font-weight:700;">סיכום שעות הדרכה</h1>
-    <p style="margin:0;font-size:14px;opacity:0.88;">${therapistName} | הופק: ${exportDate}</p>
-  `;
-  container.appendChild(header);
-
-  // Totals row
-  const totals = document.createElement('div');
-  totals.style.cssText = [
-    'display: flex',
-    'gap: 16px',
-    'margin-bottom: 24px',
-  ].join('; ');
-  const totalItems = [
-    { num: uniqueDates.length, label: 'מפגשי הדרכה' },
-    ...(hoursPerSession > 0 ? [
-      { num: hoursPerSession, label: 'שעות למפגש' },
-      { num: totalHours, label: 'סה"כ שעות' },
-    ] : []),
-  ];
-  totalItems.forEach(item => {
-    const box = document.createElement('div');
-    box.style.cssText = [
-      'flex: 1',
-      'background: #dceef4',
-      'border-radius: 8px',
-      'padding: 14px',
-      'text-align: center',
-    ].join('; ');
-    box.innerHTML = `
-      <div style="font-size:28px;font-weight:700;color:#4a90a8;">${item.num}</div>
-      <div style="font-size:12px;color:#555;margin-top:2px;">${item.label}</div>
-    `;
-    totals.appendChild(box);
-  });
-  container.appendChild(totals);
-
-  // Patient rows
-  patientRows.forEach(row => {
-    const block = document.createElement('div');
-    block.style.cssText = [
-      'margin-bottom: 14px',
-      'border: 1px solid #dde8ec',
-      'border-radius: 8px',
-      'overflow: hidden',
-    ].join('; ');
-
-    const rowHeader = document.createElement('div');
-    rowHeader.style.cssText = [
-      'background: #eaf4f8',
-      'padding: 10px 16px',
-      'display: flex',
-      'justify-content: space-between',
-      'align-items: center',
-    ].join('; ');
-    rowHeader.innerHTML = `
-      <span style="font-weight:700;font-size:14px;">${row.name}</span>
-      <span style="font-size:12px;background:#7ab8cc;color:white;padding:2px 10px;border-radius:20px;">${row.count} הדרכות</span>
-    `;
-    block.appendChild(rowHeader);
-
-    const datesDiv = document.createElement('div');
-    datesDiv.style.cssText = 'padding: 10px 16px; display: flex; flex-wrap: wrap; gap: 6px;';
-    row.dates.forEach(d => {
-      const chip = document.createElement('span');
-      chip.style.cssText = [
-        'font-size: 12px',
-        'background: #f4f8fa',
-        'border: 1px solid #dde8ec',
-        'border-radius: 20px',
-        'padding: 3px 10px',
-        'color: #555',
-      ].join('; ');
-      chip.textContent = d;
-      datesDiv.appendChild(chip);
-    });
-    block.appendChild(datesDiv);
-    container.appendChild(block);
-  });
-
-  // Footer
-  const footer = document.createElement('div');
-  footer.style.cssText = 'margin-top:24px;padding-top:16px;border-top:1px solid #e2e8f0;font-size:11px;color:#a0aec0;text-align:center;';
-  footer.textContent = `הופק ב-${exportDate} | מעקב הדרכות CBT`;
-  container.appendChild(footer);
-
-  // Render
+async function savePdf(container, fileName) {
   container.style.position = 'fixed';
   container.style.top = '-9999px';
   container.style.left = '-9999px';
@@ -415,46 +103,163 @@ export async function exportSummaryPDF({ therapist, patientRows, uniqueDates, to
   document.body.appendChild(container);
 
   try {
+    await Promise.all([...container.querySelectorAll('img')].map(img =>
+      img.complete ? null : new Promise(resolve => { img.onload = img.onerror = resolve; })
+    ));
+    await document.fonts?.ready;
+
+    const scale = 2;
     const canvas = await html2canvas(container, {
-      scale: 2, useCORS: true, allowTaint: true,
-      backgroundColor: '#ffffff', width: 750, windowWidth: 750, logging: false,
+      scale,
+      useCORS: true,
+      backgroundColor: '#ffffff',
+      width: PAGE_WIDTH_PX,
+      windowWidth: PAGE_WIDTH_PX,
+      logging: false,
     });
 
-    const imgData = canvas.toDataURL('image/png');
-    const pageWidth = 210, pageHeight = 297, margin = 10;
+    const pageWidth = 210;
+    const pageHeight = 297;
+    const margin = 12;
     const contentWidth = pageWidth - margin * 2;
-    const ratio = canvas.height / canvas.width;
-    const imgHeightMm = contentWidth * ratio;
-    const contentHeightPerPage = pageHeight - margin * 2;
-    const totalPages = Math.ceil(imgHeightMm / contentHeightPerPage);
+    const pxPerMm = canvas.width / contentWidth;
+    const pageHeightPx = Math.floor((pageHeight - margin * 2 - 6) * pxPerMm);
+
+    // Where a page may end: the top edge of every block, in canvas pixels
+    const top = container.getBoundingClientRect().top;
+    const breaks = [...container.querySelectorAll('[data-block]')]
+      .map(el => Math.round((el.getBoundingClientRect().top - top) * scale))
+      .filter(y => y > 0);
 
     const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-
-    for (let page = 0; page < totalPages; page++) {
-      if (page > 0) doc.addPage();
-      const srcY = page * contentHeightPerPage;
-      const sliceHeightMm = Math.min(contentHeightPerPage, imgHeightMm - srcY);
-      const pxPerMm = canvas.width / contentWidth;
-      const srcYPx = Math.round(srcY * pxPerMm);
-      const sliceHeightPx = Math.round(sliceHeightMm * pxPerMm);
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceHeightPx;
-      sliceCanvas.getContext('2d').drawImage(canvas, 0, srcYPx, canvas.width, sliceHeightPx, 0, 0, canvas.width, sliceHeightPx);
-      doc.addImage(sliceCanvas.toDataURL('image/png'), 'PNG', margin, margin, contentWidth, sliceHeightMm);
+    let start = 0;
+    let first = true;
+    while (start < canvas.height) {
+      const limit = start + pageHeightPx;
+      let end = canvas.height;
+      if (limit < canvas.height) {
+        // The last block boundary that still fits; a block taller than a page is cut
+        end = breaks.filter(y => y > start && y <= limit).pop() || limit;
+      }
+      const slice = document.createElement('canvas');
+      slice.width = canvas.width;
+      slice.height = end - start;
+      slice.getContext('2d').drawImage(canvas, 0, start, canvas.width, slice.height, 0, 0, canvas.width, slice.height);
+      if (!first) doc.addPage();
+      // JPEG keeps a multi-page export to a size that can be emailed
+      doc.addImage(slice.toDataURL('image/jpeg', 0.92), 'JPEG', margin, margin, contentWidth, slice.height / pxPerMm);
+      first = false;
+      start = end;
     }
 
-    const totalPagesCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= totalPagesCount; i++) {
+    const pageCount = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(9);
-      doc.setTextColor(160, 174, 192);
-      doc.text(`${i} / ${totalPagesCount}`, pageWidth / 2, pageHeight - 5, { align: 'center' });
+      doc.setTextColor(68, 89, 95);
+      doc.text(`${i} / ${pageCount}`, pageWidth / 2, pageHeight - 7, { align: 'center' });
     }
-
-    const safeName = therapistName.replace(/[^a-zA-Z\u0590-\u05FF\s]/g, '').trim().replace(/\s+/g, '_');
-    doc.save(`סיכום_הדרכות_${safeName}.pdf`);
+    doc.save(fileName);
   } finally {
     document.body.removeChild(container);
   }
+}
+
+/**
+ * Export a patient's supervisions as a PDF.
+ * @param {object} params
+ * @param {string} params.patientName
+ * @param {string} params.therapistName
+ * @param {Array}  params.sessions - sorted ascending by date
+ */
+export async function exportPatientPDF({ patientName, therapistName, sessions }) {
+  const container = buildDocument({
+    title: `מעקב הדרכות: ${patientName}`,
+    facts: [
+      `מטפל: ${therapistName}`,
+      sessions.length === 1 ? 'הדרכה אחת' : `${sessions.length} הדרכות`,
+      `הופק ב-${todayLabel()}`,
+    ],
+  });
+
+  if (sessions.length === 0) {
+    addBlock(container, 'אין הדרכות לייצוא.', `color:${INK_2};padding:24px 0;`);
+  }
+
+  sessions.forEach((session, index) => {
+    const n = session.notes || {};
+    const tags = Object.entries(n.tags || {}).filter(([, on]) => on).map(([key]) => TAG_LABELS[key] || key);
+    const parts = [
+      n.danger && n.dangerNote?.trim() && labelled('הערת מסוכנות', n.dangerNote, RISK),
+      n.report?.trim() && labelled('דיווח המודרך', n.report),
+      n.issues?.trim() && labelled('סוגיות ודילמות', n.issues),
+      n.recommendations?.trim() && labelled('המלצות וצעדים הבאים', n.recommendations),
+      // Notes written before the three-field structure existed
+      ...FOCUS_AREAS
+        .filter(fa => typeof n[fa.key] === 'string' && n[fa.key].trim())
+        .map(fa => labelled(fa.label, n[fa.key])),
+      session.summary?.trim() && labelled('סיכום', session.summary),
+      // The supervisor's own follow-up notes (supervisorRecs) stay out of the export:
+      // this document may be handed to the therapist.
+    ].filter(Boolean);
+
+    addBlock(container, `
+      <div style="flex:none;width:92px;">
+        <div style="font-size:17px;font-weight:700;">${escapeHtml(shortDate(session.date))}</div>
+        <div style="font-size:13px;color:${INK_2};">הדרכה ${index + 1}</div>
+        ${n.danger ? `<div style="font-size:13px;font-weight:700;color:${RISK};">מסוכנות</div>` : ''}
+      </div>
+      <div style="flex:1;min-width:0;border-right:2px solid ${RULE};padding-right:16px;">
+        ${tags.length ? `<div style="font-size:13px;color:${INK_2};">${tags.map(escapeHtml).join(' · ')}</div>` : ''}
+        ${parts.length ? parts.join('') : `<div style="color:${INK_2};">לא נשמר תוכן להדרכה זו.</div>`}
+      </div>
+    `, `display:flex;gap:16px;padding:14px 0;border-top:1px solid ${RULE_SOFT};`);
+  });
+
+  await savePdf(container, `הדרכות_${safeFileName(patientName)}.pdf`);
+}
+
+/**
+ * Export the supervision hours summary of a therapist as a PDF.
+ * `patientRows` items: { name, count, sessionDetails: [{ date, tags }] }
+ */
+export async function exportSummaryPDF({ therapist, patientRows, uniqueDates, totalHours }) {
+  const therapistName = therapist?.name || '';
+  const hoursPerSession = parseFloat(therapist?.hoursPerSession) || 0;
+
+  const container = buildDocument({
+    title: 'סיכום שעות הדרכה',
+    facts: [therapistName, therapist?.profession, `הופק ב-${todayLabel()}`],
+  });
+
+  const totals = [
+    ['מפגשי הדרכה', uniqueDates.length],
+    ...(hoursPerSession > 0 ? [['שעות למפגש', hoursPerSession], ['סה"כ שעות', totalHours]] : []),
+  ];
+  addBlock(container, totals.map(([label, value]) => `
+    <div style="flex:1;">
+      <div style="font-size:13px;color:${INK_2};">${label}</div>
+      <div style="font-size:22px;font-weight:700;">${escapeHtml(value)}</div>
+    </div>
+  `).join(''), `display:flex;gap:24px;padding:12px 0 16px;border-top:1px solid ${RULE_SOFT};border-bottom:2px solid ${RULE};`);
+
+  addBlock(container, `
+    <div style="flex:none;width:150px;">מטופל</div>
+    <div style="flex:none;width:80px;">הדרכות</div>
+    <div style="flex:1;">תאריכים</div>
+  `, `display:flex;gap:16px;padding:14px 0 6px;font-size:13px;font-weight:700;color:${INK_2};`);
+
+  patientRows.forEach(row => {
+    addBlock(container, `
+      <div style="flex:none;width:150px;font-weight:700;">${escapeHtml(row.name)}</div>
+      <div style="flex:none;width:80px;">${row.count}</div>
+      <div style="flex:1;color:${INK_2};">${row.sessionDetails.map(s => escapeHtml(shortDate(s.date))).join(' · ')}</div>
+    `, `display:flex;gap:16px;padding:8px 0;border-top:1px solid ${RULE_SOFT};`);
+  });
+
+  if (patientRows.length === 0) {
+    addBlock(container, 'עדיין לא תועדו הדרכות.', `color:${INK_2};padding:12px 0;border-top:1px solid ${RULE_SOFT};`);
+  }
+
+  await savePdf(container, `סיכום_הדרכות_${safeFileName(therapistName)}.pdf`);
 }

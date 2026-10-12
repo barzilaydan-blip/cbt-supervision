@@ -33,6 +33,18 @@ function ConfirmDialog({ message, onConfirm, onCancel }) {
   );
 }
 
+const TAG_LABELS = {
+  motivation: 'מוטיבציה', treatmentGoals: 'מטרות טיפול',
+  interventionTech: 'טכניקות התערבות', theoreticalKnow: 'ידע תיאורטי',
+  treatmentPlanning: 'תכנון טיפול', homework: 'שיעורי בית', conceptualization: 'המשגה',
+};
+
+// Saved at the end of a meeting; editable afterwards like the notes
+const SUMMARY_FIELDS = [
+  { key: 'summary', label: 'סיכום' },
+  { key: 'supervisorRecs', label: 'המלצות למדריך למפגש הבא' },
+];
+
 function getTodayString() {
   const now = new Date();
   const y = now.getFullYear();
@@ -55,7 +67,6 @@ export default function PatientPage() {
   const [addingSession, setAddingSession] = useState(false);
   const [showAddSessionForm, setShowAddSessionForm] = useState(false);
   const [newSessionDate, setNewSessionDate] = useState('');
-  const [showGearMenu, setShowGearMenu] = useState(false);
   const [showSessionsManager, setShowSessionsManager] = useState(false);
 
   // איסוף מידע פתוח כברירת מחדל, שאר המוקדים סגורים
@@ -169,10 +180,9 @@ export default function PatientPage() {
     if (!patient || !therapist) return;
     setPdfLoading(true);
     try {
-      const sessionsWithContent = sessions.filter(s =>
-        s.date && Object.values(s.notes || {}).some(v => v?.trim())
-      );
-      await exportPatientPDF({ patientName: patient.name, therapistName: therapist.name, sessions: sessionsWithContent });
+      // Every dated supervision, oldest first, so the numbering matches this page
+      const dated = sessions.filter(s => s.date).sort((a, b) => a.date.localeCompare(b.date));
+      await exportPatientPDF({ patientName: patient.name, therapistName: therapist.name, sessions: dated });
     } catch (err) {
       console.error(err);
       setError('שגיאה ביצוא PDF. נסה שנית.');
@@ -232,6 +242,8 @@ export default function PatientPage() {
       danger: n.danger || false,
       dangerNote: n.dangerNote || '',
       tags: { ...(n.tags || {}) },
+      summary: s.summary || '',
+      supervisorRecs: s.supervisorRecs || '',
     });
     setEditingSessionId(s.id);
   }
@@ -239,7 +251,9 @@ export default function PatientPage() {
   async function handleSaveSession(sessionId) {
     setSavingSession(true);
     try {
-      await updateDoc(doc(db, 'sessions', sessionId), { notes: editDraft });
+      // The summary and the supervisor's follow-up live beside the notes, not inside them
+      const { summary, supervisorRecs, ...notes } = editDraft;
+      await updateDoc(doc(db, 'sessions', sessionId), { notes, summary, supervisorRecs });
       setEditingSessionId(null);
     } catch (err) {
       console.error(err);
@@ -260,195 +274,183 @@ export default function PatientPage() {
     return sessions.filter((s) => s.notes && s.notes[key] && s.notes[key].trim());
   }
 
+  // Numbered oldest-first, shown newest-first
+  const numbered = sessions
+    .filter(s => s.date)
+    .sort((a, b) => a.date.localeCompare(b.date))
+    .map((s, i) => ({ s, number: i + 1 }))
+    .reverse();
+
+  const formLabel = emailSent ? 'המייל נשלח' : therapist?.email ? 'שלח טופס המשגה' : 'העתק קישור לטופס המשגה';
+
   return (
     <div className="page">
-      <div className="page-header">
-        <button className="btn-back" onClick={() => navigate(patient ? `/therapist/${patient.therapistId}` : '/')}>
-          &#x2190; חזרה
-        </button>
-        <div style={{ flex: 1 }}>
-          <h2>{patient ? patient.name : 'טוען...'}</h2>
-          <div className="subtitle">{therapist ? `מטפל: ${therapist.name}` : ''}</div>
+      <header className="page-head">
+        <div className="page-head-main">
+          <button className="page-head-back" onClick={() => navigate(patient ? `/therapist/${patient.therapistId}` : '/')}>
+            &#x2192; {therapist ? therapist.name : 'חזרה'}
+          </button>
+          <h1>{patient ? patient.name : 'טוען...'}</h1>
+          <div className="page-head-meta">
+            {numbered.length === 0 ? 'עדיין אין הדרכות' : numbered.length === 1 ? 'הדרכה אחת' : `${numbered.length} הדרכות`}
+          </div>
         </div>
-        {patient?.therapistId && (
-          <button
-            className="btn btn-primary btn-sm"
-            onClick={() => navigate(`/supervision-session/${patient.therapistId}?patientId=${patientId}`)}
-          >
-            ▶ הזן מפגש
+        <div className="page-head-actions">
+          <button className="btn btn-secondary" onClick={sendFormEmail} disabled={!patient}>{formLabel}</button>
+          <button className="btn btn-secondary" onClick={handleExportPDF} disabled={pdfLoading || sessions.length === 0 || !therapist}>
+            {pdfLoading ? 'מייצא...' : 'ייצוא PDF'}
           </button>
-        )}
-        <div style={{ position: 'relative' }}>
-          <button
-            className="patient-header-kebab"
-            onClick={() => setShowGearMenu(v => !v)}
-            title="פעולות"
-          >
-            ⋮
-          </button>
-          {showGearMenu && (
-            <div className="patient-gear-dropdown">
-              <button
-                className="patient-gear-item"
-                onClick={() => { handleExportPDF(); setShowGearMenu(false); }}
-                disabled={pdfLoading || sessions.length === 0 || !therapist}
-              >
-                {pdfLoading ? '⏳ מייצא...' : '📄 ייצוא PDF'}
-              </button>
-              <button
-                className="patient-gear-item"
-                onClick={() => { sendFormEmail(); setShowGearMenu(false); }}
-                disabled={!patient}
-              >
-                {emailSent ? '✅ המייל נשלח!' : therapist?.email ? '📧 שלח טופס המשגה' : '🔗 העתק לינק להמשגה'}
-              </button>
-            </div>
+          {patient?.therapistId && (
+            <button
+              className="btn btn-primary"
+              onClick={() => navigate(`/supervision-session/${patient.therapistId}?patientId=${patientId}`)}
+            >
+              פתח מפגש הדרכה
+            </button>
           )}
         </div>
-      </div>
+      </header>
 
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
-      {emailError && <div className="alert alert-error">⚠️ {emailError}</div>}
+      {error && <div className="alert alert-error">{error}</div>}
+      {emailError && <div className="alert alert-error">{emailError}</div>}
 
-      {/* היסטוריית הדרכות כרונולוגית */}
+      {patient?.background && (
+        <section className="sheet">
+          <div className="sup-block-label">פרופיל</div>
+          <div className="sup-profile-content">{patient.background}</div>
+        </section>
+      )}
+
+      {/* Supervision history, newest first */}
       {loading ? (
-        <div className="loading-wrapper"><div className="spinner" /><span>טוען נתונים...</span></div>
-      ) : sessions.length === 0 ? (
+        <div className="sheet" aria-busy="true">
+          <div className="sup-skeleton" /><div className="sup-skeleton" /><div className="sup-skeleton short" />
+        </div>
+      ) : numbered.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon">📋</div>
-          <p>אין הדרכות עדיין.</p>
+          <p>עדיין לא תועדה הדרכה על המטופל. פתח מפגש הדרכה כדי לכתוב את הראשונה.</p>
         </div>
       ) : (
-        <div className="patient-sessions-timeline">
-          {[...sessions]
-            .filter(s => s.date)
-            .sort((a, b) => a.date.localeCompare(b.date))
-            .map((s, idx) => {
+        <div className="sheet">
+          <ol className="sup-days">
+            {numbered.map(({ s, number }) => {
               const n = s.notes || {};
-              const isNew = !!(n.report || n.issues || n.recommendations);
-              const newFields = [
-                { label: 'דיווח המודרך',          value: n.report },
-                { label: 'סוגיות ודילמות',         value: n.issues },
-                { label: 'המלצות וצעדים הבאים',   value: n.recommendations },
-              ];
-              const legacyFields = Object.entries(n)
-                .filter(([k, v]) => typeof v === 'string' && v.trim() && !['report','issues','recommendations','dangerNote'].includes(k));
-              const tags = n.tags ? Object.entries(n.tags).filter(([,v]) => v).map(([k]) => k) : [];
-              const tagLabels = { motivation:'מוטיבציה', treatmentGoals:'מטרות טיפול', interventionTech:'טכניקות התערבות', theoreticalKnow:'ידע תיאורטי', treatmentPlanning:'תכנון טיפול', homework:'שיעורי בית', conceptualization:'המשגה' };
+              const [year, month, day] = s.date.split('-');
+              const fields = [
+                { label: 'דיווח המודרך', value: n.report },
+                { label: 'סוגיות ודילמות', value: n.issues },
+                { label: 'המלצות וצעדים הבאים', value: n.recommendations },
+                // Notes saved before the three-field structure existed
+                ...Object.entries(n)
+                  .filter(([k, v]) => typeof v === 'string' && !['report', 'issues', 'recommendations', 'dangerNote'].includes(k))
+                  .map(([, v]) => ({ label: '', value: v })),
+                { label: 'סיכום', value: s.summary },
+                { label: 'המלצות למדריך למפגש הבא', value: s.supervisorRecs },
+              ].filter(f => f.value?.trim());
+              const tags = n.tags ? Object.entries(n.tags).filter(([, v]) => v).map(([k]) => k) : [];
               const isExpanded = !!expandedAreas[s.id];
-
               const isEditing = editingSessionId === s.id;
+              const preview = (s.summary || n.report || fields[0]?.value || '').split('\n')[0];
 
               return (
-                <div key={s.id} className="pt-session-card">
-                  <div className="pt-session-header" onClick={() => !isEditing && toggleArea(s.id)}>
-                    <div className="pt-session-header-right">
-                      <span className="pt-session-num">#{idx + 1}</span>
-                      <span className="pt-session-date">📅 {formatDate(s.date)}</span>
-                      {n.danger && <span className="pt-danger-badge">⚠️ מסוכנות</span>}
-                      {tags.length > 0 && tags.map(t => (
-                        <span key={t} className="pt-tag-badge">{tagLabels[t] || t}</span>
-                      ))}
+                <li key={s.id} className="sup-day">
+                  <div className="sup-day-date"><b>{day}.{month}</b><span>{year}</span></div>
+                  <div className="sup-day-body">
+                    <div className="pt-day-head">
+                      <button
+                        className="pt-day-toggle"
+                        aria-expanded={isExpanded || isEditing}
+                        onClick={() => !isEditing && toggleArea(s.id)}
+                      >
+                        <span className="sup-day-num">הדרכה {number}</span>
+                        {n.danger && <span className="pt-flag-risk">מסוכנות</span>}
+                        {tags.map(t => <span key={t} className="pt-tag">{TAG_LABELS[t] || t}</span>)}
+                      </button>
+                      <span className="pt-day-actions">
+                        {!isEditing && (
+                          <button className="link-btn" onClick={() => { startEditing(s); if (!isExpanded) toggleArea(s.id); }}>עריכה</button>
+                        )}
+                        <button className="link-btn danger" onClick={() => setConfirmDelete(s)}>מחק</button>
+                      </span>
                     </div>
-                    <div className="pt-session-header-left">
-                      {!isEditing && (
-                        <button className="btn btn-secondary btn-sm" onClick={e => { e.stopPropagation(); startEditing(s); if (!isExpanded) toggleArea(s.id); }}>✏️</button>
-                      )}
-                      <button className="btn btn-danger btn-sm" onClick={e => { e.stopPropagation(); setConfirmDelete(s); }}>🗑</button>
-                      {!isEditing && <span className="pt-chevron">{isExpanded ? '▲' : '▼'}</span>}
-                    </div>
-                  </div>
 
-                  {isEditing ? (
-                    <div className="pt-session-body pt-session-edit">
-                      {SESSION_FIELDS.map(f => (
-                        <div key={f.key} className="pt-field">
-                          <div className="pt-field-label">{f.label}</div>
-                          <textarea
-                            className="pt-edit-textarea"
-                            value={editDraft[f.key] || ''}
-                            onChange={e => setEditDraft(d => ({ ...d, [f.key]: e.target.value }))}
-                            rows={3}
-                          />
-                        </div>
-                      ))}
-                      <div className="pt-field">
-                        <div className="pt-field-label">נושאים שנדונו</div>
-                        <div className="pt-edit-tags">
+                    {isEditing ? (
+                      <div className="pt-edit">
+                        {[...SESSION_FIELDS, ...SUMMARY_FIELDS].map(f => (
+                          <div key={f.key} className="sup-field-block">
+                            <label className="sup-field-label" htmlFor={`edit-${s.id}-${f.key}`}>{f.label}</label>
+                            <textarea
+                              id={`edit-${s.id}-${f.key}`}
+                              className="sup-field-textarea"
+                              value={editDraft[f.key] || ''}
+                              onChange={e => setEditDraft(d => ({ ...d, [f.key]: e.target.value }))}
+                              rows={3}
+                            />
+                          </div>
+                        ))}
+                        <div className="sup-tags-bar">
+                          <label className={`sup-tag-chip sup-tag-danger${editDraft.danger ? ' checked' : ''}`}>
+                            <input
+                              type="checkbox"
+                              checked={!!editDraft.danger}
+                              onChange={e => setEditDraft(d => ({ ...d, danger: e.target.checked }))}
+                            />
+                            מסוכנות
+                          </label>
                           {QUICK_TAGS.map(t => (
-                            <label key={t.key} className={`pt-edit-tag${editDraft.tags?.[t.key] ? ' checked' : ''}`}>
+                            <label key={t.key} className={`sup-tag-chip${editDraft.tags?.[t.key] ? ' checked' : ''}`}>
                               <input
                                 type="checkbox"
                                 checked={!!editDraft.tags?.[t.key]}
                                 onChange={e => setEditDraft(d => ({ ...d, tags: { ...d.tags, [t.key]: e.target.checked } }))}
-                                style={{ display: 'none' }}
                               />
                               {t.label}
                             </label>
                           ))}
                         </div>
-                      </div>
-                      <div className="pt-field">
-                        <label className={`pt-edit-tag${editDraft.danger ? ' checked danger' : ''}`}>
-                          <input
-                            type="checkbox"
-                            checked={!!editDraft.danger}
-                            onChange={e => setEditDraft(d => ({ ...d, danger: e.target.checked }))}
-                            style={{ display: 'none' }}
-                          />
-                          ⚠️ מסוכנות
-                        </label>
                         {editDraft.danger && (
-                          <textarea
-                            className="pt-edit-textarea"
-                            style={{ marginTop: 6 }}
-                            placeholder="הערת מסוכנות..."
-                            value={editDraft.dangerNote || ''}
-                            onChange={e => setEditDraft(d => ({ ...d, dangerNote: e.target.value }))}
-                            rows={2}
-                          />
+                          <div className="sup-danger-note">
+                            <textarea
+                              className="sup-field-textarea"
+                              aria-label="פירוט סוגיית המסוכנות"
+                              placeholder="פרט את סוגיית המסוכנות"
+                              value={editDraft.dangerNote || ''}
+                              onChange={e => setEditDraft(d => ({ ...d, dangerNote: e.target.value }))}
+                              rows={2}
+                            />
+                          </div>
                         )}
-                      </div>
-                      <div className="pt-edit-actions">
-                        <button className="btn btn-primary btn-sm" onClick={() => handleSaveSession(s.id)} disabled={savingSession}>
-                          {savingSession ? '⏳ שומר...' : '✅ שמור'}
-                        </button>
-                        <button className="btn btn-secondary btn-sm" onClick={() => setEditingSessionId(null)}>ביטול</button>
-                      </div>
-                    </div>
-                  ) : isExpanded && (
-                    <div className="pt-session-body">
-                      {isNew ? (
-                        newFields.filter(f => f.value?.trim()).map(f => (
-                          <div key={f.label} className="pt-field">
-                            <div className="pt-field-label">{f.label}</div>
-                            <div className="pt-field-value">{f.value}</div>
-                          </div>
-                        ))
-                      ) : (
-                        legacyFields.map(([k, v]) => (
-                          <div key={k} className="pt-field">
-                            <div className="pt-field-value">{v}</div>
-                          </div>
-                        ))
-                      )}
-                      {n.danger && n.dangerNote && (
-                        <div className="pt-field pt-field-danger">
-                          <div className="pt-field-label">⚠️ הערת מסוכנות</div>
-                          <div className="pt-field-value">{n.dangerNote}</div>
+                        <div className="pt-edit-actions">
+                          <button className="btn btn-primary btn-sm" onClick={() => handleSaveSession(s.id)} disabled={savingSession}>
+                            {savingSession ? 'שומר...' : 'שמור'}
+                          </button>
+                          <button className="btn btn-secondary btn-sm" onClick={() => setEditingSessionId(null)}>ביטול</button>
                         </div>
-                      )}
-                      {s.summary && (
-                        <div className="pt-field pt-field-summary">
-                          <div className="pt-field-label">סיכום</div>
-                          <div className="pt-field-value">{s.summary}</div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
+                      </div>
+                    ) : isExpanded ? (
+                      <>
+                        {n.danger && n.dangerNote && (
+                          <>
+                            <div className="sup-day-label pt-risk-text">הערת מסוכנות</div>
+                            <div className="sup-day-text">{n.dangerNote}</div>
+                          </>
+                        )}
+                        {fields.map((f, i) => (
+                          <React.Fragment key={i}>
+                            {f.label && <div className="sup-day-label">{f.label}</div>}
+                            <div className="sup-day-text">{f.value}</div>
+                          </React.Fragment>
+                        ))}
+                        {fields.length === 0 && <div className="sup-day-line">לא נשמר תוכן להדרכה זו.</div>}
+                      </>
+                    ) : (
+                      preview && <div className="sup-day-line">{preview}</div>
+                    )}
+                  </div>
+                </li>
               );
             })}
+          </ol>
         </div>
       )}
 
@@ -456,7 +458,7 @@ export default function PatientPage() {
       {conceptualizations.length > 0 && (
         <div className="sessions-manager-section" style={{ marginTop: 16 }}>
           <button className="sessions-manager-toggle" onClick={() => setShowConceptualizations(v => !v)}>
-            🧩 המשגות שהוגשו ({conceptualizations.length})
+            המשגות שהוגשו ({conceptualizations.length})
             <span style={{ marginRight: '8px' }}>{showConceptualizations ? '▲' : '▼'}</span>
           </button>
           {showConceptualizations && (
@@ -465,7 +467,7 @@ export default function PatientPage() {
                 .sort((a, b) => (a.submittedAt?.toDate?.() || 0) - (b.submittedAt?.toDate?.() || 0))
                 .map(c => (
                   <div key={c.id} className="concept-entry">
-                    <div className="concept-entry-date">📅 {formatTimestamp(c.submittedAt)}</div>
+                    <div className="concept-entry-date">{formatTimestamp(c.submittedAt)}</div>
                     {CONCEPTUALIZATION_SECTIONS.map(sec => {
                       const hasContent = sec.fields.some(f => c.fields?.[f.key]?.trim());
                       if (!hasContent) return null;

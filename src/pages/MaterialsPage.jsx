@@ -5,7 +5,7 @@ import {
   collection, onSnapshot, addDoc, deleteDoc, updateDoc, doc, getDoc, serverTimestamp, orderBy, query,
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
-import { sendMaterialsEmail } from '../utils/emailService.js';
+import { sendMaterialsEmail, formatMaterialsListHtml } from '../utils/emailService.js';
 
 export const MATERIAL_CATEGORIES = ['שאלונים', 'דפי עבודה', 'מדריכים', 'כלים טיפוליים', 'אחר'];
 
@@ -32,7 +32,6 @@ export default function MaterialsPage() {
   const [adding, setAdding] = useState(false);
   const [error, setError] = useState('');
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [showKebab, setShowKebab] = useState(false);
   const [search, setSearch] = useState('');
   const [activeTags, setActiveTags] = useState([]);
   const [editingMaterial, setEditingMaterial] = useState(null);
@@ -78,7 +77,7 @@ export default function MaterialsPage() {
     setSendError('');
     try {
       const selected = materials.filter(m => selectedMaterials.has(m.id));
-      const materialsList = selected.map(m => `• ${m.name}${m.url ? ': ' + m.url : ''}`).join('\n');
+      const materialsList = formatMaterialsListHtml(selected);
       await sendMaterialsEmail({
         therapistEmail: therapistForSend.email,
         therapistName: therapistForSend.name || '',
@@ -308,134 +307,101 @@ export default function MaterialsPage() {
     return acc;
   }, {});
 
-  function MaterialCard({ m }) {
+  function MaterialRow({ m }) {
+    const selected = sendMode && selectedMaterials.has(m.id);
     return (
-      <div className={`material-card${sendMode && selectedMaterials.has(m.id) ? ' material-card-selected' : ''}`}
-        onClick={sendMode ? () => toggleMaterial(m.id) : undefined}
-        style={sendMode ? { cursor: 'pointer' } : undefined}
-      >
-        <div className="card">
-          <div className="card-body">
-            {sendMode && (
-              <input type="checkbox" className="material-send-checkbox"
-                checked={selectedMaterials.has(m.id)}
-                onChange={() => toggleMaterial(m.id)}
-                onClick={e => e.stopPropagation()}
-              />
-            )}
-            <div className="card-title">{m.name}</div>
-            {m.url && (
-              <a href={m.url} target="_blank" rel="noopener noreferrer" className="card-meta">
-                🔗 פתח קישור
-              </a>
-            )}
-            {m.tags?.length > 0 && (
-              <div className="material-tags-row">
-                {m.tags.map(tag => (
-                  <button
-                    key={tag}
-                    className={`material-tag-pill${activeTags.includes(tag) ? ' active' : ''}`}
-                    onClick={() => toggleActiveTag(tag)}
-                    title={activeTags.includes(tag) ? 'הסר פילטר' : 'סנן לפי תגית'}
-                  >
-                    {tag}
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-          <div className="card-actions">
-            <button
-              className="material-eye-btn"
-              onClick={e => { e.currentTarget.blur(); setOpenDesc(openDesc === m.id ? null : m.id); }}
-              title="תיאור"
-            >
-              👁
-            </button>
-            <button
-              className="material-eye-btn"
-              onClick={() => openEdit(m)}
-              title="עריכה"
-            >
-              ✏️
-            </button>
-            <button className="btn btn-danger btn-sm" onClick={() => setConfirmDelete(m.id)}>
-              🗑 מחק
-            </button>
-          </div>
-        </div>
-        {openDesc === m.id && (
-          <div className="material-desc-panel">
-            {m.description?.trim()
-              ? m.description
-              : <span className="material-desc-empty">אין מידע נוסף</span>}
-          </div>
+      <li className={`ruled-row mat-row${selected ? ' selected' : ''}`}>
+        {sendMode && (
+          <input
+            type="checkbox"
+            aria-label={`בחר את ${m.name}`}
+            checked={selected}
+            onChange={() => toggleMaterial(m.id)}
+          />
         )}
-      </div>
+        <div className="mat-row-body">
+          {m.url
+            ? <a className="mat-row-name" href={m.url} target="_blank" rel="noopener noreferrer">{m.name}</a>
+            : <span className="mat-row-name">{m.name}</span>}
+          {m.tags?.length > 0 && (
+            <div className="material-tags-row">
+              {m.tags.map(tag => (
+                <button
+                  key={tag}
+                  className={`material-tag-pill${activeTags.includes(tag) ? ' active' : ''}`}
+                  onClick={() => toggleActiveTag(tag)}
+                  title={activeTags.includes(tag) ? 'הסר סינון' : 'סנן לפי תגית'}
+                >
+                  {tag}
+                </button>
+              ))}
+            </div>
+          )}
+          {openDesc === m.id && (
+            <div className="mat-row-desc">{m.description?.trim() || 'לא נכתב תיאור לחומר זה.'}</div>
+          )}
+        </div>
+        <div className="ruled-row-actions">
+          <button
+            className="link-btn"
+            aria-expanded={openDesc === m.id}
+            onClick={() => setOpenDesc(openDesc === m.id ? null : m.id)}
+          >
+            תיאור
+          </button>
+          <button className="link-btn" onClick={() => openEdit(m)}>עריכה</button>
+          <button className="link-btn danger" onClick={() => setConfirmDelete(m.id)}>מחק</button>
+        </div>
+      </li>
     );
   }
 
   return (
     <div className="page">
-      <div className="page-header">
-        <button className="btn-back" onClick={() => navigate(sendMode ? fromUrl : '/')}>&#x2190; {sendMode ? 'חזרה למפגש' : 'חזרה'}</button>
-        <div style={{ flex: 1 }}>
-          <h2>📚 ספריית חומרים</h2>
-          <div className="subtitle">{sendMode && therapistForSend ? `שליחה ל: ${therapistForSend.name}` : 'ניהול חומרי עזר לטיפול'}</div>
-        </div>
-        <div style={{ position: 'relative' }}>
-          <button
-            className="patient-header-kebab"
-            onClick={() => setShowKebab(v => !v)}
-            title="תפריט"
-          >
-            ⋮
+      <header className="page-head">
+        <div className="page-head-main">
+          <button className="page-head-back" onClick={() => navigate(sendMode ? fromUrl : '/')}>
+            &#x2192; {sendMode ? 'חזרה למפגש' : 'כל המטפלים'}
           </button>
-          {showKebab && (
-            <div className="patient-gear-dropdown">
-              <button className="patient-gear-item" onClick={() => { navigate('/materials'); setShowKebab(false); }}>
-                📚 ספריית חומרים
-              </button>
-              <button className="patient-gear-item" onClick={() => { navigate('/'); setShowKebab(false); }}>
-                👥 מטפלים
-              </button>
-            </div>
-          )}
+          <h1>ספריית חומרים</h1>
+          <div className="page-head-meta">
+            {sendMode && therapistForSend ? `שליחה אל ${therapistForSend.name}` : 'חומרי עזר לשליחה למטפלים'}
+          </div>
         </div>
-      </div>
+        {!sendMode && (
+          <div className="page-head-actions">
+            <button className="btn btn-secondary" onClick={() => { setShowAiPanel(v => !v); setShowAddForm(false); setAiStep('idle'); setAiError(''); }}>
+              {showAiPanel ? 'סגור' : 'צור חומר עם AI'}
+            </button>
+            <button className="btn btn-primary" onClick={() => { setShowAddForm(v => !v); setShowAiPanel(false); }}>
+              {showAddForm ? 'סגור' : 'הוסף חומר'}
+            </button>
+          </div>
+        )}
+      </header>
 
-      {error && <div className="alert alert-error">⚠️ {error}</div>}
+      {error && <div className="alert alert-error">{error}</div>}
 
       {sendMode && (
-        <div className="materials-send-bar">
-          <span className="materials-send-label">סמן חומרים לשליחה:</span>
-          <div style={{ flex: 1 }} />
-          {sendError && <span className="materials-send-error">⚠️ {sendError}</span>}
+        <div className="sheet mat-send-bar">
+          <span>
+            {selectedMaterials.size > 0 ? `נבחרו ${selectedMaterials.size} חומרים` : 'סמן את החומרים לשליחה'}
+            {!therapistForSend?.email && <span className="send-hint danger"> · למטפל אין כתובת מייל</span>}
+          </span>
+          {sendError && <span className="send-hint danger">{sendError}</span>}
           <button
             className="btn btn-primary btn-sm"
             onClick={handleSendMaterials}
             disabled={sendLoading || sendSuccess || selectedMaterials.size === 0 || !therapistForSend?.email}
           >
-            {sendSuccess ? '✅ נשלח!' : sendLoading ? '⏳ שולח...' : `📧 שלח ${selectedMaterials.size > 0 ? `(${selectedMaterials.size})` : ''}`}
+            {sendSuccess ? 'נשלח' : sendLoading ? 'שולח...' : 'שלח במייל'}
           </button>
-          {!therapistForSend?.email && (
-            <span style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>אין כתובת מייל למטפל</span>
-          )}
         </div>
       )}
 
-      {!sendMode && <div className="page-actions">
-        <button className="btn btn-primary" onClick={() => { setShowAddForm(v => !v); setShowAiPanel(false); }}>
-          {showAddForm ? '✕ סגור' : '+ הוסף חומר'}
-        </button>
-        <button className="btn btn-secondary" onClick={() => { setShowAiPanel(v => !v); setShowAddForm(false); setAiStep('idle'); setAiError(''); }}>
-          {showAiPanel ? '✕ סגור' : '🤖 צור עם AI'}
-        </button>
-      </div>}
-
       {showAiPanel && (
         <div className="add-form ai-panel">
-          <div className="ai-panel-title">🤖 יצירת חומר עם Claude</div>
+          <div className="sheet-title">יצירת חומר עם Claude</div>
           {aiStep === 'idle' && (
             <>
               <div className="form-group">
@@ -443,19 +409,19 @@ export default function MaterialsPage() {
                 <textarea
                   className="form-input"
                   rows={3}
-                  placeholder="למשל: צור דף עבודה לזיהוי מחשבות אוטומטיות שליליות..."
+                  placeholder="למשל: דף עבודה לזיהוי מחשבות אוטומטיות שליליות"
                   value={aiPrompt}
                   onChange={e => setAiPrompt(e.target.value)}
                   autoFocus
                 />
               </div>
-              {aiError && <div className="alert alert-error">⚠️ {aiError}</div>}
+              {aiError && <div className="alert alert-error">{aiError}</div>}
               <button
                 className="btn btn-primary"
                 onClick={handleGenerate}
                 disabled={!aiPrompt.trim()}
               >
-                ▶ צור
+                צור
               </button>
             </>
           )}
@@ -503,16 +469,16 @@ export default function MaterialsPage() {
                   ))}
                 </div>
               </div>
-              {aiError && <div className="alert alert-error">⚠️ {aiError}</div>}
+              {aiError && <div className="alert alert-error">{aiError}</div>}
               <div className="ai-panel-actions">
                 <button className="btn btn-primary" onClick={handleAiSave} disabled={saving || !aiMeta.name.trim()}>
-                  {saving ? 'שומר...' : '✅ שמור לספרייה'}
+                  {saving ? 'שומר...' : 'שמור לספרייה'}
                 </button>
                 <button className="btn btn-secondary" onClick={() => { setAiStep('idle'); setAiError(''); }}>
-                  🔄 נסה שוב
+                  נסה שוב
                 </button>
                 <button className="btn btn-secondary" onClick={() => { setShowAiPanel(false); setAiStep('idle'); setAiError(''); }}>
-                  ✕ בטל
+                  בטל
                 </button>
               </div>
             </>
@@ -549,7 +515,7 @@ export default function MaterialsPage() {
               <label>תיאור (אופציונלי)</label>
               <textarea
                 className="form-input"
-                placeholder="תיאור קצר של החומר..."
+                placeholder="תיאור קצר של החומר"
                 value={form.description}
                 onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
                 rows={3}
@@ -567,7 +533,7 @@ export default function MaterialsPage() {
                 <input
                   className="material-chip-input"
                   type="text"
-                  placeholder="הקלד תגית ולחץ Enter..."
+                  placeholder="הקלד תגית ולחץ Enter"
                   value={tagInput}
                   onChange={e => setTagInput(e.target.value)}
                   onKeyDown={handleTagInputKeyDown}
@@ -600,8 +566,9 @@ export default function MaterialsPage() {
           <div className="materials-search-row">
             <input
               className="materials-search-input"
-              type="text"
-              placeholder="🔍 חיפוש חומרים..."
+              type="search"
+              aria-label="חיפוש חומרים"
+              placeholder="חיפוש לפי שם, תיאור או תגית"
               value={search}
               onChange={e => setSearch(e.target.value)}
             />
@@ -637,38 +604,30 @@ export default function MaterialsPage() {
       )}
 
       {loading ? (
-        <div className="loading-wrapper"><div className="spinner" /><span>טוען...</span></div>
+        <ul className="ruled-list" aria-busy="true">
+          {[0, 1, 2].map(i => <li key={i} className="ruled-skeleton"><i /><i /></li>)}
+        </ul>
       ) : materials.length === 0 ? (
         <div className="empty-state">
-          <div className="empty-state-icon">📚</div>
-          <p>אין חומרים עדיין. הוסף חומר ראשון.</p>
+          <p>הספרייה ריקה. הוסף חומר ראשון כדי שתוכל לשלוח אותו למטפלים.</p>
         </div>
       ) : isFiltering ? (
         <div className="section">
-          <div className="section-title" style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
-            נמצאו {filtered.length} תוצאות
-          </div>
-          <div className="card-list">
-            {filtered.length === 0
-              ? <div className="focus-area-empty">לא נמצאו חומרים התואמים לחיפוש.</div>
-              : filtered.map(m => <MaterialCard key={m.id} m={m} />)
-            }
-          </div>
+          <div className="send-hint">נמצאו {filtered.length} תוצאות</div>
+          {filtered.length === 0
+            ? <div className="empty-state"><p>לא נמצאו חומרים התואמים לחיפוש.</p></div>
+            : <ul className="ruled-list">{filtered.map(m => <MaterialRow key={m.id} m={m} />)}</ul>}
         </div>
       ) : (
         <div className="section">
-          <div className="section-title" style={{ fontSize: '0.95rem', color: 'var(--text-secondary)' }}>
-            {RECENT_COUNT} החומרים האחרונים שעלו
+          <div className="send-hint">
+            {materials.length > RECENT_COUNT ? `${RECENT_COUNT} החומרים האחרונים שנוספו` : `${materials.length} חומרים בספרייה`}
           </div>
-          <div className="card-list">
-            {recentMaterials.map(m => <MaterialCard key={m.id} m={m} />)}
-          </div>
+          <ul className="ruled-list">
+            {recentMaterials.map(m => <MaterialRow key={m.id} m={m} />)}
+          </ul>
           {materials.length > RECENT_COUNT && (
-            <div style={{ textAlign: 'center', marginTop: 8 }}>
-              <span style={{ fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
-                חפש או סנן לפי תגית כדי לראות את כל {materials.length} החומרים
-              </span>
-            </div>
+            <div className="send-hint">חפש או סנן לפי תגית כדי לראות את כל {materials.length} החומרים.</div>
           )}
         </div>
       )}
@@ -770,7 +729,7 @@ export default function MaterialsPage() {
                   <input
                     className="material-chip-input"
                     type="text"
-                    placeholder="הקלד תגית חדשה ולחץ Enter..."
+                    placeholder="הקלד תגית חדשה ולחץ Enter"
                     value={editTagInput}
                     onChange={e => setEditTagInput(e.target.value)}
                     onKeyDown={handleEditTagKeyDown}

@@ -1,0 +1,332 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-10-12T06:50:54.748Z",
+  "title": "Design System: מעקב הדרכות CBT",
+  "extensions": {
+    "colorMeta": {
+      "cover": {
+        "role": "primary",
+        "displayName": "Diary cover",
+        "canonical": "#14353d",
+        "tonalRamp": [
+          "#061012",
+          "#0b1d22",
+          "#102a31",
+          "#14353d",
+          "#4f686e",
+          "#8a9a9e",
+          "#bdc6c9",
+          "#e8ebec"
+        ]
+      },
+      "cover-2": {
+        "role": "primary",
+        "displayName": "Cover, raised",
+        "canonical": "#1d4650",
+        "tonalRamp": [
+          "#091518",
+          "#10272c",
+          "#173840",
+          "#1d4650",
+          "#56747c",
+          "#8ea3a8",
+          "#c0cbce",
+          "#e8edee"
+        ]
+      },
+      "ground": {
+        "role": "neutral",
+        "displayName": "Ground",
+        "canonical": "#eef3f4",
+        "tonalRamp": [
+          "#474949",
+          "#838686",
+          "#bec2c3",
+          "#eef3f4",
+          "#f2f6f7",
+          "#f7f9fa",
+          "#fafcfc",
+          "#fdfefe"
+        ]
+      },
+      "page": {
+        "role": "neutral",
+        "displayName": "Page",
+        "canonical": "#ffffff",
+        "tonalRamp": [
+          "#4d4d4d",
+          "#8c8c8c",
+          "#cccccc",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff",
+          "#ffffff"
+        ]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#132a30",
+        "tonalRamp": [
+          "#060d0e",
+          "#0a171a",
+          "#0f2226",
+          "#132a30",
+          "#4e5f64",
+          "#899598",
+          "#bdc3c5",
+          "#e7eaea"
+        ]
+      },
+      "ink-2": {
+        "role": "neutral",
+        "displayName": "Secondary ink",
+        "canonical": "#44595f",
+        "tonalRamp": [
+          "#141b1d",
+          "#253134",
+          "#36474c",
+          "#44595f",
+          "#738387",
+          "#a2acaf",
+          "#cbd1d2",
+          "#eceeef"
+        ]
+      },
+      "line": {
+        "role": "neutral",
+        "displayName": "Sheet line",
+        "canonical": "#cfdadd",
+        "tonalRamp": [
+          "#3e4142",
+          "#72787a",
+          "#a6aeb1",
+          "#cfdadd",
+          "#dbe3e6",
+          "#e7edee",
+          "#f2f5f5",
+          "#fafbfc"
+        ]
+      },
+      "rule": {
+        "role": "secondary",
+        "displayName": "Ruling blue",
+        "canonical": "#9cc9ea",
+        "tonalRamp": [
+          "#2f3c46",
+          "#566f81",
+          "#7da1bb",
+          "#9cc9ea",
+          "#b5d7ef",
+          "#cee4f5",
+          "#e3f0f9",
+          "#f5fafd"
+        ]
+      },
+      "rule-soft": {
+        "role": "secondary",
+        "displayName": "Ruling blue, soft",
+        "canonical": "#d9eaf6",
+        "tonalRamp": [
+          "#41464a",
+          "#778187",
+          "#aebbc5",
+          "#d9eaf6",
+          "#e3eff8",
+          "#ecf5fb",
+          "#f4f9fc",
+          "#fbfdfe"
+        ]
+      },
+      "today": {
+        "role": "tertiary",
+        "displayName": "Today ribbon",
+        "canonical": "#e0a323",
+        "tonalRamp": [
+          "#43310b",
+          "#7b5a13",
+          "#b3821c",
+          "#e0a323",
+          "#e8ba5a",
+          "#f0d191",
+          "#f6e5c1",
+          "#fcf6e9"
+        ]
+      },
+      "risk": {
+        "role": "error",
+        "displayName": "Risk red",
+        "canonical": "#c2362b",
+        "tonalRamp": [
+          "#3a100d",
+          "#6b1e18",
+          "#9b2b22",
+          "#c2362b",
+          "#d16860",
+          "#e19b95",
+          "#eec7c4",
+          "#f9ebea"
+        ]
+      },
+      "risk-soft": {
+        "role": "error",
+        "displayName": "Risk red, soft",
+        "canonical": "#fbeceb",
+        "tonalRamp": [
+          "#4b4747",
+          "#8a8281",
+          "#c9bdbc",
+          "#fbeceb",
+          "#fcf1f0",
+          "#fdf6f5",
+          "#fefaf9",
+          "#fffdfd"
+        ]
+      }
+    },
+    "typographyMeta": {
+      "title": {
+        "displayName": "Title",
+        "purpose": "Page and patient names."
+      },
+      "date": {
+        "displayName": "Date",
+        "purpose": "Dates on the rail and the therapist name on the cover."
+      },
+      "heading": {
+        "displayName": "Heading",
+        "purpose": "Section and row names."
+      },
+      "body": {
+        "displayName": "Body",
+        "purpose": "Notes, labels and controls."
+      },
+      "small": {
+        "displayName": "Small",
+        "purpose": "Facts under a name, numbering, tags."
+      }
+    },
+    "shadows": [
+      {
+        "name": "dialog",
+        "value": "0 10px 28px rgba(20, 53, 61, 0.18)",
+        "purpose": "Dialogs over the scrim. Nothing else casts a shadow."
+      }
+    ],
+    "motion": [
+      {
+        "name": "ease-out",
+        "value": "cubic-bezier(0.23, 1, 0.32, 1)",
+        "purpose": "State changes, 160ms."
+      },
+      {
+        "name": "press",
+        "value": "scale(0.97)",
+        "purpose": "Pressed feedback on every button."
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "rail-below",
+        "value": "1180px"
+      },
+      {
+        "name": "stack",
+        "value": "720px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "The one main action of a screen.",
+      "html": "<button class=\"ds-btn-primary\">סיום מפגש ושמירה</button>",
+      "css": ".ds-btn-primary{font-family:'Heebo Variable',Heebo,Arial,sans-serif;background:var(--cover,#14353d);color:#fff;border:1px solid var(--cover,#14353d);border-radius:8px;padding:9px 18px;font-size:15px;font-weight:500;cursor:pointer;transition:background-color 160ms cubic-bezier(0.23,1,0.32,1),transform 160ms cubic-bezier(0.23,1,0.32,1)}.ds-btn-primary:hover{background:#1d4650}.ds-btn-primary:active{transform:scale(.97)}.ds-btn-primary:focus-visible{outline:2px solid #14353d;outline-offset:2px}"
+    },
+    {
+      "name": "Secondary button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Every other action in a page head.",
+      "html": "<button class=\"ds-btn-secondary\">שלח חומרים</button>",
+      "css": ".ds-btn-secondary{font-family:'Heebo Variable',Heebo,Arial,sans-serif;background:#fff;color:#132a30;border:1px solid #b9c9cd;border-radius:8px;padding:9px 18px;font-size:15px;font-weight:500;cursor:pointer;transition:background-color 160ms cubic-bezier(0.23,1,0.32,1),transform 160ms cubic-bezier(0.23,1,0.32,1)}.ds-btn-secondary:hover{background:#eef3f4}.ds-btn-secondary:active{transform:scale(.97)}.ds-btn-secondary:focus-visible{outline:2px solid #14353d;outline-offset:2px}"
+    },
+    {
+      "name": "Text field",
+      "kind": "input",
+      "refersTo": "field",
+      "description": "Writing fields and inputs.",
+      "html": "<textarea class=\"ds-field\" rows=\"3\" dir=\"rtl\" placeholder=\"מה דיווח המטפל על המפגש עם המטופל\"></textarea>",
+      "css": ".ds-field{font-family:'Heebo Variable',Heebo,Arial,sans-serif;width:100%;padding:10px 12px;border:1px solid #b9c9cd;border-radius:8px;background:#fff;color:#132a30;font-size:16px;line-height:1.55}.ds-field:focus{outline:none;border-color:#14353d;box-shadow:0 0 0 3px #d9eaf6}"
+    },
+    {
+      "name": "Tag chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Topic tags; a checkbox with a pill face.",
+      "html": "<span class=\"ds-chip\">מוטיבציה</span> <span class=\"ds-chip ds-chip-on\">שיעורי בית</span> <span class=\"ds-chip ds-chip-risk\">מסוכנות</span>",
+      "css": ".ds-chip{font-family:'Heebo Variable',Heebo,Arial,sans-serif;display:inline-flex;padding:5px 13px;border-radius:99px;border:1px solid #b9c9cd;background:#fff;color:#44595f;font-size:13px}.ds-chip-on{background:#14353d;border-color:#14353d;color:#fff}.ds-chip-risk{border-color:#c2362b;color:#c2362b}"
+    },
+    {
+      "name": "Date rail entry",
+      "kind": "custom",
+      "refersTo": "date",
+      "description": "The signature: a dated, numbered supervision on the ruled line.",
+      "html": "<div class=\"ds-day\" dir=\"rtl\"><div class=\"ds-day-date\"><b>28.09</b><span>2026</span></div><div class=\"ds-day-body\"><span class=\"ds-day-num\">הדרכה 4 · המפגש הקודם</span><div>נבנה סולם חשיפות בן שמונה שלבים.</div></div></div>",
+      "css": ".ds-day{font-family:'Heebo Variable',Heebo,Arial,sans-serif;display:grid;grid-template-columns:64px 1fr;column-gap:28px;padding:12px 0;border-bottom:1px solid #d9eaf6;position:relative;color:#132a30;font-size:15px}.ds-day::before{content:\"\";position:absolute;top:0;bottom:0;inset-inline-start:77px;width:2px;background:#9cc9ea}.ds-day::after{content:\"\";position:absolute;inset-inline-start:72px;top:19px;width:12px;height:12px;border-radius:50%;background:#fff;border:2px solid #9cc9ea;box-sizing:border-box}.ds-day-date{font-variant-numeric:tabular-nums;line-height:1.15}.ds-day-date b{display:block;font-size:22px}.ds-day-date span,.ds-day-num{font-size:13px;color:#44595f}"
+    },
+    {
+      "name": "Ruled row",
+      "kind": "card",
+      "refersTo": "sheet",
+      "description": "One person or item in a list, with real facts beneath the name.",
+      "html": "<div class=\"ds-row\" dir=\"rtl\"><div><div class=\"ds-row-name\">ר.מ.</div><div class=\"ds-row-meta\">4 הדרכות · אחרונה 28.09.2026</div></div><a class=\"ds-row-link\">פרופיל</a></div>",
+      "css": ".ds-row{font-family:'Heebo Variable',Heebo,Arial,sans-serif;display:flex;align-items:center;justify-content:space-between;padding:13px 20px;background:#fff;border:1px solid #cfdadd;border-radius:10px;color:#132a30}.ds-row:hover{background:#eef3f4}.ds-row-name{font-size:17px;font-weight:700}.ds-row-meta{font-size:13px;color:#44595f;font-variant-numeric:tabular-nums}.ds-row-link{font-size:13px;color:#14353d;text-decoration:underline;text-underline-offset:3px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The supervision diary",
+    "overview": "The app is one supervisor's working diary. Its visual world is the clinic's yearly appointment diary: a deep blue-green cover, white pages on a cool ground, ruling lines in the sky blue of the logo, and an amber ribbon that marks today. The world lends type, palette, density and one signature move. Layout, navigation and controls stay the standard ones of a web product.\n\nThe signature move is the date rail: a vertical ruled line with dated, sequentially numbered supervisions hanging on it. It appears on the meeting screen (the previous meeting stays open next to today's entry), on the patient page (the whole history) and in the exported PDF.\n\nThree surfaces face other people and open with the same letterhead (logo, name, title, a rule in the logo's blue): the public conceptualization form, the PDFs, and the email templates in `email-templates/`.\n\nThe interface is Hebrew, right to left, and built for a desktop window that often sits beside a Zoom call.",
+    "keyCharacteristics": [
+      "Date rail with numbered supervisions",
+      "Deep cover-coloured patient rail",
+      "Amber reserved for today",
+      "One family in five sizes",
+      "Text labels, no icons or emoji",
+      "Shared letterhead on form, PDF and email"
+    ],
+    "rules": [
+      {
+        "name": "The reserved ribbon",
+        "body": "Amber marks today and the active patient and nothing else. Red marks risk and deletion and nothing else.",
+        "section": "colors"
+      },
+      {
+        "name": "Five sizes",
+        "body": "One family, Heebo, at 13, 15, 17, 22 and 26px.",
+        "section": "typography"
+      },
+      {
+        "name": "Flat sheets",
+        "body": "Sheets are separated by a 1px line. Only dialogs cast a shadow.",
+        "section": "elevation"
+      }
+    ],
+    "dos": [
+      "Do keep the previous meeting visible wherever the supervisor writes about a patient.",
+      "Do show real facts in lists (count, last date, risk) instead of filler such as \"click to view\".",
+      "Do number supervisions per patient, oldest first, wherever they appear.",
+      "Do start anything a therapist sees with the letterhead."
+    ],
+    "donts": [
+      "Don't use amber for anything except today and the active patient, or red for anything except risk and deletion.",
+      "Don't add emoji, icon tiles, gradients, or coloured side stripes.",
+      "Don't add a second typeface or a size outside the five steps.",
+      "Don't put real patient data in demos, screenshots or examples. Demo data is synthetic and labelled.",
+      "Don't change the logo or the two header lines (\"דן ברזילי, פסיכולוג חינוכי\", \"מומחה ומדריך בטיפול ב- CBT\")."
+    ]
+  }
+}

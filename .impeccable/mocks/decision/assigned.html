@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>יומן הדרכה — סקיצה (נתוני הדגמה)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Heebo:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+  :root { --cover:#14353d; --cover-2:#1d4650; --ground:#eef3f4; --page:#fff; --ink:#132a30; --ink-2:#44595f;
+          --rule:#9cc9ea; --rule-soft:#d9eaf6; --today:#e0a323; --risk:#c2362b; --line:#cfdadd; }
+  * { box-sizing:border-box; margin:0; }
+  body { width:1440px; height:900px; overflow:hidden; font-family:Heebo, sans-serif; color:var(--ink); background:var(--ground); font-size:15px; line-height:1.5; }
+  .top { height:64px; background:var(--page); border-bottom:1px solid var(--line); display:flex; align-items:center; gap:16px; padding:0 24px; }
+  .logo { width:74px; height:44px; border:2px solid var(--rule); border-radius:22px 22px 22px 6px; display:grid; place-items:center; font-weight:700; color:#6f7477; font-size:13px; }
+  .who b { display:block; font-size:17px; font-weight:700; } .who span { font-size:13px; color:var(--ink-2); }
+  .top .sp { flex:1; } .top a { color:var(--ink-2); font-size:14px; text-decoration:none; padding:8px 12px; }
+  .shell { display:grid; grid-template-columns:232px 1fr 392px; height:836px; }
+  /* patients: the diary cover */
+  .rail { background:var(--cover); color:#e6eff1; padding:20px 0; }
+  .rail h2 { font-size:13px; font-weight:500; color:#a9c3c9; padding:0 20px 4px; }
+  .rail .meet { padding:0 20px 18px; border-bottom:1px solid var(--cover-2); margin-bottom:10px; }
+  .rail .meet b { display:block; font-size:22px; font-weight:700; color:#fff; }
+  .rail .meet span { font-size:14px; color:#a9c3c9; font-variant-numeric:tabular-nums; }
+  .pt { display:flex; align-items:center; gap:10px; padding:11px 20px; font-size:16px; border-inline-start:4px solid transparent; }
+  .pt small { margin-inline-start:auto; font-size:13px; color:#a9c3c9; font-variant-numeric:tabular-nums; }
+  .pt.on { background:var(--cover-2); border-inline-start-color:var(--today); color:#fff; font-weight:700; }
+  .pt i { width:8px; height:8px; border-radius:50%; background:var(--rule); flex:none; }
+  .pt .risk { background:var(--risk); }
+  /* work area */
+  .work { padding:22px 28px; display:flex; flex-direction:column; gap:14px; }
+  .bar { display:flex; align-items:center; gap:12px; }
+  .bar h1 { font-size:26px; font-weight:700; } .bar .n { font-size:14px; color:var(--ink-2); font-variant-numeric:tabular-nums; }
+  .bar .sp { flex:1; }
+  .btn { font:inherit; font-weight:500; font-size:15px; padding:10px 18px; border-radius:8px; border:1px solid var(--line); background:var(--page); color:var(--ink); }
+  .btn.rec { border-color:var(--risk); color:var(--risk); } .btn.main { background:var(--cover); color:#fff; border-color:var(--cover); }
+  .profile { background:var(--page); border:1px solid var(--line); border-radius:10px; padding:12px 16px; font-size:14px; color:var(--ink-2); }
+  .profile b { color:var(--ink); }
+  .field { background:var(--page); border:1px solid var(--line); border-radius:10px; padding:12px 16px; flex:1; display:flex; flex-direction:column; gap:6px; }
+  .field.on { border-color:var(--cover); box-shadow:0 2px 10px rgba(20,53,61,.12); }
+  .field label { font-size:15px; font-weight:700; } .field p { font-size:15px; }
+  .field .ph { color:var(--ink-2); }
+  .tags { display:flex; gap:8px; flex-wrap:wrap; }
+  .tag { font-size:13px; padding:5px 12px; border-radius:99px; border:1px solid var(--line); background:var(--page); color:var(--ink-2); }
+  .tag.on { background:var(--cover); border-color:var(--cover); color:#fff; } .tag.risk { border-color:var(--risk); color:var(--risk); }
+  /* signature: the date rail */
+  .dates { background:var(--page); border-inline-start:1px solid var(--line); padding:22px 24px 0 20px; position:relative; }
+  .dates h2 { font-size:13px; font-weight:500; color:var(--ink-2); margin-bottom:14px; }
+  .dates::before { content:""; position:absolute; top:60px; bottom:0; inset-inline-start:96px; width:2px; background:var(--rule); }
+  .day { display:grid; grid-template-columns:72px 1fr; gap:26px; padding:12px 0; border-bottom:1px solid var(--rule-soft); position:relative; }
+  .day::after { content:""; position:absolute; inset-inline-start:71px; top:19px; width:12px; height:12px; border-radius:50%; background:var(--page); border:2px solid var(--rule); }
+  .day .d { text-align:start; font-variant-numeric:tabular-nums; } .day .d b { display:block; font-size:22px; font-weight:700; line-height:1.1; } .day .d span { font-size:13px; color:var(--ink-2); }
+  .day .num { font-size:13px; color:var(--ink-2); font-variant-numeric:tabular-nums; } .day h3 { font-size:14px; font-weight:700; margin-top:6px; } .day p { font-size:14px; }
+  .day.today::after { background:var(--today); border-color:var(--today); } .day.today .d b { color:#8a6208; }
+  .day.today .mark { display:inline-block; background:var(--today); color:#2b1f00; font-size:13px; font-weight:700; padding:2px 10px; border-radius:4px; }
+  .day ul { padding-inline-start:16px; font-size:14px; } .day.old p { color:var(--ink-2); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="logo">קשב רב</div>
+  <div class="who"><b>דן ברזילי, פסיכולוג חינוכי</b><span>מומחה ומדריך בטיפול ב- CBT</span></div>
+  <div class="sp"></div><a>מסך בית</a><a>חומרים</a><a>יציאה</a>
+</div>
+<div class="shell">
+  <aside class="rail">
+    <div class="meet"><h2 style="padding:0">מפגש הדרכה · נתוני הדגמה</h2><b>נועה לוי</b><span>12.10.2026 · 4 מטופלים</span></div>
+    <h2>מטופלים</h2>
+    <div class="pt on"><i></i>ר.מ.<small>הדרכה 7</small></div>
+    <div class="pt"><i class="risk"></i>ד.ק.<small>הדרכה 3</small></div>
+    <div class="pt"><i></i>א.ש.<small>הדרכה 12</small></div>
+    <div class="pt"><i style="background:transparent;border:1px solid #6f8f96"></i>ת.ב.<small>הדרכה 1</small></div>
+  </aside>
+  <main class="work">
+    <div class="bar"><h1>ר.מ.</h1><span class="n">הדרכה 7 · 12.10.2026</span><span class="sp"></span>
+      <button class="btn rec">הקלטה 14:32</button><button class="btn main">סיום מפגש ושמירה</button></div>
+    <div class="profile"><b>פרופיל:</b> בן 34, חרדה חברתית. מטרות: השתתפות בישיבות צוות, יוזמת שיחה עם עמיתים. טיפול שבועי, מפגש 11.</div>
+    <div class="field on"><label>דיווח המודרך</label><p>בוצעה חשיפה ראשונה: שיחה קצרה עם מוכר בחנות. רמת החרדה ירדה מ-8 ל-5 תוך כדי. רישום המחשבות לא בוצע השבוע.</p></div>
+    <div class="field"><label>סוגיות ודילמות</label><p>ייתכן שהטופס הוסבר מהר מדי. המודרכת מתארת תחושה שהיא ממהרת בפגישות.</p></div>
+    <div class="field"><label>המלצות וצעדים הבאים</label><p class="ph">סיכום אופרטיבי, יוצג בפגישה הבאה</p></div>
+    <div class="tags"><span class="tag risk">מסוכנות</span><span class="tag on">שיעורי בית</span><span class="tag on">טכניקות התערבות</span><span class="tag">מוטיבציה</span><span class="tag">המשגה</span><span class="tag">תכנון טיפול</span></div>
+  </main>
+  <aside class="dates">
+    <h2>רצף ההדרכות של ר.מ.</h2>
+    <div class="day today"><div class="d"><b>12.10</b><span>2026</span></div><div><span class="mark">היום</span> <span class="num">הדרכה 7</span></div></div>
+    <div class="day"><div class="d"><b>28.09</b><span>2026</span></div><div><span class="num">הדרכה 6 · המפגש הקודם</span>
+      <h3>עיקרי הדברים</h3><p>נבנה סולם חשיפות בן שמונה שלבים. המטופל מתקשה בשלבים שכוללים פנייה לדמות סמכות.</p>
+      <h3>לעקוב היום</h3><ul><li>האם בוצעה חשיפה ראשונה ומה היו הדירוגים</li><li>לעבור יחד על רישום המחשבות</li><li>קצב הפגישות של המודרכת</li></ul></div></div>
+    <div class="day old"><div class="d"><b>14.09</b><span>2026</span></div><div><span class="num">הדרכה 5</span><p>המשגה מעודכנת, אמונת ליבה: "אני משעמם"</p></div></div>
+    <div class="day old"><div class="d"><b>31.08</b><span>2026</span></div><div><span class="num">הדרכה 4</span><p>קושי בהגדרת מטרות מדידות</p></div></div>
+    <div class="day old"><div class="d"><b>17.08</b><span>2026</span></div><div><span class="num">הדרכה 3</span><p>ברית טיפולית, חשש מביקורת</p></div></div>
+  </aside>
+</div>
+</body>
+</html>
