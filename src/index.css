@@ -2702,6 +2702,37 @@ a.mat-row-name:hover {
   padding: 0 20px 4px;
 }
 
+/* General notes from the previous meeting: about the therapist, not a patient */
+.sup-rail-general {
+  margin: 0 20px 14px;
+  padding: 10px 12px;
+  border-radius: var(--radius-sm);
+  background: var(--cover-2);
+  font-size: var(--fs-1);
+}
+
+.sup-rail-general summary {
+  cursor: pointer;
+  color: #fff;
+  font-weight: 500;
+}
+
+.sup-rail-general-label {
+  margin-top: 8px;
+  font-weight: 700;
+  color: var(--cover-ink-2);
+}
+
+.sup-rail-general-text {
+  margin-top: 4px;
+  white-space: pre-wrap;
+  color: var(--cover-ink);
+}
+
+.sup-review-risk {
+  color: var(--risk);
+}
+
 .sup-rail-therapist {
   font-size: var(--fs-4);
   font-weight: 700;
@@ -2862,18 +2893,6 @@ a.mat-row-name:hover {
   padding: 32px 0;
 }
 
-.sup-last-general {
-  background: var(--page);
-  border: 1px solid var(--line);
-  border-radius: var(--radius-md);
-  padding: 12px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  white-space: pre-wrap;
-}
-
-.sup-last-general-title,
 .sup-block-label {
   font-size: var(--fs-1);
   font-weight: 700;

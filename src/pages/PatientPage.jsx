@@ -42,7 +42,7 @@ const TAG_LABELS = {
 // Saved at the end of a meeting; editable afterwards like the notes
 const SUMMARY_FIELDS = [
   { key: 'summary', label: 'סיכום' },
-  { key: 'supervisorRecs', label: 'המלצות למדריך למפגש הבא' },
+  { key: 'supervisorRecs', label: 'נקודות להמשך מעקב' },
 ];
 
 function getTodayString() {
@@ -345,7 +345,7 @@ export default function PatientPage() {
                   .filter(([k, v]) => typeof v === 'string' && !['report', 'issues', 'recommendations', 'dangerNote'].includes(k))
                   .map(([, v]) => ({ label: '', value: v })),
                 { label: 'סיכום', value: s.summary },
-                { label: 'המלצות למדריך למפגש הבא', value: s.supervisorRecs },
+                { label: 'נקודות להמשך מעקב', value: s.supervisorRecs },
               ].filter(f => f.value?.trim());
               const tags = n.tags ? Object.entries(n.tags).filter(([, v]) => v).map(([k]) => k) : [];
               const isExpanded = !!expandedAreas[s.id];
