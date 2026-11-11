@@ -17,6 +17,7 @@ import { db } from '../firebase.js';
 import { FOCUS_AREAS, CONCEPTUALIZATION_SECTIONS } from '../constants.js';
 import { exportPatientPDF } from '../utils/exportPDF.js';
 import { sendFormEmail as sendFormEmailUtil } from '../utils/emailService.js';
+import { isOwnPractice, sessionTerms, NOTE_KEYS } from '../utils/sessionModes.js';
 
 function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
@@ -38,12 +39,6 @@ const TAG_LABELS = {
   interventionTech: 'טכניקות התערבות', theoreticalKnow: 'ידע תיאורטי',
   treatmentPlanning: 'תכנון טיפול', homework: 'שיעורי בית', conceptualization: 'המשגה',
 };
-
-// Saved at the end of a meeting; editable afterwards like the notes
-const SUMMARY_FIELDS = [
-  { key: 'summary', label: 'סיכום' },
-  { key: 'supervisorRecs', label: 'נקודות להמשך מעקב' },
-];
 
 function getTodayString() {
   const now = new Date();
@@ -80,10 +75,16 @@ export default function PatientPage() {
   const [editDraft, setEditDraft] = useState({});
   const [savingSession, setSavingSession] = useState(false);
 
-  const SESSION_FIELDS = [
-    { key: 'report', label: 'דיווח המודרך' },
-    { key: 'issues', label: 'סוגיות ודילמות' },
-    { key: 'recommendations', label: 'המלצות וצעדים הבאים' },
+  // Dan Barzilay's own clients are therapy sessions; everyone else's are supervisions
+  const own = isOwnPractice(therapist);
+  const terms = sessionTerms(own);
+  // Rubrics kept in the session's notes; the follow-up rubric is the session's supervisorRecs
+  const SESSION_FIELDS = terms.fields.filter(f => f.key !== 'followUp' && f.key !== 'aiFeedback');
+  // Saved at the end of a meeting; editable afterwards like the notes
+  const SUMMARY_FIELDS = [
+    { key: 'summary', label: 'סיכום' },
+    { key: 'supervisorRecs', label: terms.followLabel },
+    ...terms.fields.filter(f => f.key === 'aiFeedback'),
   ];
   const QUICK_TAGS = [
     { key: 'motivation', label: 'מוטיבציה' },
@@ -182,7 +183,7 @@ export default function PatientPage() {
     try {
       // Every dated supervision, oldest first, so the numbering matches this page
       const dated = sessions.filter(s => s.date).sort((a, b) => a.date.localeCompare(b.date));
-      await exportPatientPDF({ patientName: patient.name, therapistName: therapist.name, sessions: dated });
+      await exportPatientPDF({ patientName: patient.name, therapistName: therapist.name, sessions: dated, therapy: own });
     } catch (err) {
       console.error(err);
       setError('שגיאה ביצוא PDF. נסה שנית.');
@@ -239,6 +240,8 @@ export default function PatientPage() {
       report: n.report || '',
       issues: n.issues || '',
       recommendations: n.recommendations || '',
+      intervention: n.intervention || '',
+      aiFeedback: n.aiFeedback || '',
       danger: n.danger || false,
       dangerNote: n.dangerNote || '',
       tags: { ...(n.tags || {}) },
@@ -292,7 +295,7 @@ export default function PatientPage() {
           </button>
           <h1>{patient ? patient.name : 'טוען...'}</h1>
           <div className="page-head-meta">
-            {numbered.length === 0 ? 'עדיין אין הדרכות' : numbered.length === 1 ? 'הדרכה אחת' : `${numbered.length} הדרכות`}
+            {numbered.length === 0 ? `עדיין אין ${terms.sessions}` : numbered.length === 1 ? (own ? 'מפגש אחד' : 'הדרכה אחת') : `${numbered.length} ${terms.sessions}`}
           </div>
         </div>
         <div className="page-head-actions">
@@ -305,7 +308,7 @@ export default function PatientPage() {
               className="btn btn-primary"
               onClick={() => navigate(`/supervision-session/${patient.therapistId}?patientId=${patientId}`)}
             >
-              פתח מפגש הדרכה
+              פתח {terms.meeting}
             </button>
           )}
         </div>
@@ -328,7 +331,7 @@ export default function PatientPage() {
         </div>
       ) : numbered.length === 0 ? (
         <div className="empty-state">
-          <p>עדיין לא תועדה הדרכה על המטופל. פתח מפגש הדרכה כדי לכתוב את הראשונה.</p>
+          <p>{own ? 'עדיין לא תועד מפגש עם המטופל. פתח מפגש טיפולי כדי לכתוב את הראשון.' : 'עדיין לא תועדה הדרכה על המטופל. פתח מפגש הדרכה כדי לכתוב את הראשונה.'}</p>
         </div>
       ) : (
         <div className="sheet">
@@ -337,15 +340,14 @@ export default function PatientPage() {
               const n = s.notes || {};
               const [year, month, day] = s.date.split('-');
               const fields = [
-                { label: 'דיווח המודרך', value: n.report },
-                { label: 'סוגיות ודילמות', value: n.issues },
-                { label: 'המלצות וצעדים הבאים', value: n.recommendations },
+                ...SESSION_FIELDS.map(f => ({ label: f.label, value: n[f.key] })),
+                // A session written before the therapy rubrics existed
+                ...(own ? [{ label: 'המלצות וצעדים הבאים', value: n.recommendations }] : []),
                 // Notes saved before the three-field structure existed
                 ...Object.entries(n)
-                  .filter(([k, v]) => typeof v === 'string' && !['report', 'issues', 'recommendations', 'dangerNote'].includes(k))
+                  .filter(([k, v]) => typeof v === 'string' && !NOTE_KEYS.includes(k) && k !== 'dangerNote')
                   .map(([, v]) => ({ label: '', value: v })),
-                { label: 'סיכום', value: s.summary },
-                { label: 'נקודות להמשך מעקב', value: s.supervisorRecs },
+                ...SUMMARY_FIELDS.map(f => ({ label: f.label, value: f.key === 'aiFeedback' ? n.aiFeedback : s[f.key] })),
               ].filter(f => f.value?.trim());
               const tags = n.tags ? Object.entries(n.tags).filter(([, v]) => v).map(([k]) => k) : [];
               const isExpanded = !!expandedAreas[s.id];
@@ -362,7 +364,7 @@ export default function PatientPage() {
                         aria-expanded={isExpanded || isEditing}
                         onClick={() => !isEditing && toggleArea(s.id)}
                       >
-                        <span className="sup-day-num">הדרכה {number}</span>
+                        <span className="sup-day-num">{terms.session} {number}</span>
                         {n.danger && <span className="pt-flag-risk">מסוכנות</span>}
                         {tags.map(t => <span key={t} className="pt-tag">{TAG_LABELS[t] || t}</span>)}
                       </button>
@@ -441,7 +443,7 @@ export default function PatientPage() {
                             <div className="sup-day-text">{f.value}</div>
                           </React.Fragment>
                         ))}
-                        {fields.length === 0 && <div className="sup-day-line">לא נשמר תוכן להדרכה זו.</div>}
+                        {fields.length === 0 && <div className="sup-day-line">לא נשמר תוכן ל{terms.session} זו.</div>}
                       </>
                     ) : (
                       preview && <div className="sup-day-line">{preview}</div>
@@ -492,7 +494,7 @@ export default function PatientPage() {
 
       {confirmDelete && (
         <ConfirmDialog
-          message={`האם אתה בטוח שברצונך למחוק את ההדרכה מתאריך ${formatDate(confirmDelete.date)}?`}
+          message={`האם אתה בטוח שברצונך למחוק את ה${terms.session} מתאריך ${formatDate(confirmDelete.date)}?`}
           onConfirm={() => handleDeleteSession(confirmDelete)}
           onCancel={() => setConfirmDelete(null)}
         />

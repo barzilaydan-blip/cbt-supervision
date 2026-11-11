@@ -5,19 +5,12 @@ import {
   where, serverTimestamp,
 } from 'firebase/firestore';
 import { db } from '../firebase.js';
-import { rephraseText, generateSessionSummary, analyzeSupervisionRecording } from '../utils/aiService.js';
+import { rephraseText, generateSessionSummary, analyzeSupervisionRecording, analyzeTherapySession } from '../utils/aiService.js';
+import { isOwnPractice, sessionTerms, NOTE_KEYS } from '../utils/sessionModes.js';
 import { startRecording } from '../utils/recorder.js';
 import { transcribeSegment, isTranscriptionConfigured } from '../utils/transcriptionService.js';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const SESSION_FIELDS = [
-  { key: 'report',          label: 'דיווח המודרך',            placeholder: 'מה דיווח המטפל על המפגש עם המטופל' },
-  { key: 'issues',          label: 'סוגיות ודילמות',           placeholder: 'דיון מקצועי, המשגה, שאלות שעלו' },
-  { key: 'recommendations', label: 'המלצות וצעדים הבאים',      placeholder: 'ההמלצות וההכוונה שלך, ומה סוכם שהמודרך יעשה' },
-  // Saved as the session's supervisorRecs; shown next meeting under "לעקוב היום"
-  { key: 'followUp',        label: 'נקודות להמשך מעקב',        placeholder: 'מה לבדוק במפגש הבא' },
-];
-
 const QUICK_TAGS = [
   { key: 'motivation',          label: 'מוטיבציה' },
   { key: 'treatmentGoals',      label: 'מטרות טיפול' },
@@ -29,7 +22,7 @@ const QUICK_TAGS = [
 ];
 
 function emptyDraft() {
-  return { report: '', issues: '', recommendations: '', followUp: '', danger: false, dangerNote: '', tags: {} };
+  return { report: '', issues: '', recommendations: '', intervention: '', aiFeedback: '', followUp: '', danger: false, dangerNote: '', tags: {} };
 }
 
 function getTodayString() {
@@ -56,14 +49,14 @@ function formatDate(dateStr) {
 // What a past supervision contributes to the date rail: its main points and
 // what to follow up on. Sessions saved before the summary fields existed fall
 // back to whatever notes they have.
-function entryParts(session) {
+function entryParts(session, followName) {
   const n = session.notes || {};
   const followUp = session.supervisorRecs?.trim() || '';
   const follow = followUp || (typeof n.recommendations === 'string' ? n.recommendations.trim() : '');
-  const followLabel = followUp ? 'נקודות להמשך מעקב' : 'המלצות וצעדים הבאים';
+  const followLabel = followUp ? followName : 'המלצות וצעדים הבאים';
   if (session.summary?.trim()) return { main: session.summary.trim(), follow, followLabel };
   const main = Object.entries(n)
-    .filter(([k, v]) => k !== 'recommendations' && k !== 'dangerNote' && typeof v === 'string' && v.trim())
+    .filter(([k, v]) => !['recommendations', 'aiFeedback', 'dangerNote'].includes(k) && typeof v === 'string' && v.trim())
     .map(([, v]) => v.trim())
     .join('\n');
   return { main, follow, followLabel };
@@ -85,6 +78,11 @@ export default function SupervisionSessionPage() {
   const [patients, setPatients] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+
+  // Dan Barzilay's own therapy sessions get therapy rubrics; everyone else is a supervision
+  const own = isOwnPractice(therapist);
+  const terms = sessionTerms(own);
+  const SESSION_FIELDS = terms.fields;
 
   const STORAGE_KEY = `sup_draft_${therapistId}`;
 
@@ -190,7 +188,7 @@ export default function SupervisionSessionPage() {
         // Pre-populate draft only if the draft is currently empty
         setDraftNotes(prev => {
           const cur = prev[p.id];
-          const hasMeaningful = cur && (cur.report?.trim() || cur.issues?.trim() || cur.recommendations?.trim() || cur.followUp?.trim());
+          const hasMeaningful = cur && (NOTE_KEYS.some(k => cur[k]?.trim()) || cur.followUp?.trim());
           if (hasMeaningful) return prev;
           const n = sessionDoc.data().notes || {};
           const followUp = sessionDoc.data().supervisorRecs || '';
@@ -200,6 +198,8 @@ export default function SupervisionSessionPage() {
               report: n.report || '',
               issues: n.issues || '',
               recommendations: n.recommendations || '',
+              intervention: n.intervention || '',
+              aiFeedback: n.aiFeedback || '',
               followUp,
               danger: n.danger || false,
               dangerNote: n.dangerNote || '',
@@ -291,7 +291,7 @@ export default function SupervisionSessionPage() {
       recorderRef.current = rec;
       setRecording(true);
       setRecNotice(withSystemAudio && !rec.hasSystemAudio
-        ? 'שמע המחשב לא שותף, ולכן מוקלט המיקרופון בלבד. קול המודרך יוקלט רק אם הוא נשמע ברמקולים.'
+        ? `שמע המחשב לא שותף, ולכן מוקלט המיקרופון בלבד. קול ${terms.person} יוקלט רק אם הוא נשמע ברמקולים.`
         : '');
     } catch (err) {
       console.error(err);
@@ -341,7 +341,7 @@ export default function SupervisionSessionPage() {
 
   function hasDraft(patientId) {
     const d = draftNotes[patientId] || {};
-    return !!(d.report?.trim() || d.issues?.trim() || d.recommendations?.trim() || d.followUp?.trim() || d.danger);
+    return !!(NOTE_KEYS.some(k => d[k]?.trim()) || d.followUp?.trim() || d.danger);
   }
 
   function hasAnyDraft() { return recording || hasRecording || patients.some(p => hasDraft(p.id)); }
@@ -385,10 +385,7 @@ export default function SupervisionSessionPage() {
           const fromRecording = recByPatient[p.id];
           const d = fromRecording ? {
             ...typed,
-            report: fromRecording.report,
-            issues: fromRecording.issues,
-            recommendations: fromRecording.recommendations,
-            followUp: fromRecording.followUp,
+            ...Object.fromEntries(SESSION_FIELDS.map(f => [f.key, fromRecording[f.key] ?? typed[f.key]])),
             danger: typed.danger || !!fromRecording.riskNote.trim(),
             dangerNote: fromRecording.riskNote.trim() || typed.dangerNote,
           } : typed;
@@ -396,15 +393,16 @@ export default function SupervisionSessionPage() {
             report: d.report || '',
             issues: d.issues || '',
             recommendations: d.recommendations || '',
+            intervention: d.intervention || '',
+            aiFeedback: d.aiFeedback || '',
             danger: d.danger || false,
             dangerNote: d.dangerNote || '',
             tags: d.tags || {},
           };
-          const parts = [
-            notes.report          && `דיווח המודרך:\n${notes.report}`,
-            notes.issues          && `סוגיות ודילמות:\n${notes.issues}`,
-            notes.recommendations && `המלצות וצעדים הבאים:\n${notes.recommendations}`,
-          ].filter(Boolean);
+          // The summary covers the session itself, not the follow-up or the AI's own feedback
+          const parts = SESSION_FIELDS
+            .filter(f => f.key !== 'followUp' && f.key !== 'aiFeedback' && notes[f.key]?.trim())
+            .map(f => `${f.label}:\n${notes[f.key]}`);
           let summary = '';
           const supervisorRecs = (d.followUp || '').trim();
           if (parts.length) {
@@ -414,6 +412,7 @@ export default function SupervisionSessionPage() {
                 therapistName: therapist?.name,
                 date:          formatDate(date),
                 notes:         parts.join('\n\n'),
+                therapy:       own,
               });
             } catch (err) {
               console.error('summary generation failed for patient', p.id, err);
@@ -454,6 +453,10 @@ export default function SupervisionSessionPage() {
   async function handleFinish() {
     if (!hasAnyDraft()) { navigate(`/therapist/${therapistId}`); return; }
     if (!recording && !hasRecording) { saveAll(null); return; }
+    if (own && !selectedPatient) {
+      setError('בחר ברשימה את המטופל שאיתו התקיים המפגש, ואז לחץ שוב על "סיום מפגש ושמירה".');
+      return;
+    }
 
     setError('');
     try {
@@ -470,23 +473,38 @@ export default function SupervisionSessionPage() {
         return;
       }
       setFinishStage('analyzing');
-      const result = await analyzeSupervisionRecording({
-        therapistName: therapist?.name,
-        date: formatDate(date),
-        transcript,
-        patients: patients.map(p => {
-          const d = draftNotes[p.id] || {};
-          return {
-            id: p.id,
-            name: p.name,
-            background: p.background,
-            typedNotes: [
-              ...SESSION_FIELDS.filter(f => d[f.key]?.trim()).map(f => `${f.label}: ${d[f.key].trim()}`),
-              d.danger && `מסוכנות: ${d.dangerNote || 'סומנה'}`,
-            ].filter(Boolean).join('\n'),
-          };
-        }),
-      });
+      const typedNotesFor = (id) => {
+        const d = draftNotes[id] || {};
+        return [
+          ...SESSION_FIELDS.filter(f => d[f.key]?.trim()).map(f => `${f.label}: ${d[f.key].trim()}`),
+          d.danger && `מסוכנות: ${d.dangerNote || 'סומנה'}`,
+        ].filter(Boolean).join('\n');
+      };
+      // A therapy session is with one client: the one selected on the screen
+      const result = own
+        ? {
+            patients: [{
+              patientId: selectedPatient.id,
+              ...await analyzeTherapySession({
+                date: formatDate(date),
+                transcript,
+                patient: { name: selectedPatient.name, background: selectedPatient.background, typedNotes: typedNotesFor(selectedPatient.id) },
+              }),
+            }],
+            generalSummary: '',
+            generalRecommendations: '',
+          }
+        : await analyzeSupervisionRecording({
+            therapistName: therapist?.name,
+            date: formatDate(date),
+            transcript,
+            patients: patients.map(p => ({
+              id: p.id,
+              name: p.name,
+              background: p.background,
+              typedNotes: typedNotesFor(p.id),
+            })),
+          });
       setReview({
         ...result,
         patients: result.patients.filter(r => patients.some(p => p.id === r.patientId)),
@@ -552,7 +570,7 @@ export default function SupervisionSessionPage() {
   // One past supervision on the date rail
   function renderEntry(session, index) {
     const { day, year } = railDate(session.date);
-    const { main, follow, followLabel } = entryParts(session);
+    const { main, follow, followLabel } = entryParts(session, terms.followLabel);
     const number = history.length - index;
     const isPrevious = index === 0;
     const full = (
@@ -569,7 +587,7 @@ export default function SupervisionSessionPage() {
             <div className="sup-day-text">{follow}</div>
           </>
         )}
-        {!main && !follow && <div className="sup-day-line">לא נשמר תוכן להדרכה זו.</div>}
+        {!main && !follow && <div className="sup-day-line">לא נשמר תוכן ל{terms.session} זו.</div>}
       </>
     );
     return (
@@ -578,13 +596,13 @@ export default function SupervisionSessionPage() {
         <div className="sup-day-body">
           {isPrevious ? (
             <>
-              <span className="sup-day-num">הדרכה {number} · המפגש הקודם</span>
+              <span className="sup-day-num">{terms.session} {number} · המפגש הקודם</span>
               {full}
             </>
           ) : (
             <details>
               <summary>
-                <span className="sup-day-num">הדרכה {number}</span>
+                <span className="sup-day-num">{terms.session} {number}</span>
                 <span className="sup-day-line">{(main || follow).split('\n')[0]}</span>
               </summary>
               {full}
@@ -599,10 +617,10 @@ export default function SupervisionSessionPage() {
     <div className="sup-session-page">
       {/* ── Patient rail ── */}
       <aside className="sup-rail">
-        <button className="sup-rail-back" onClick={leaveMeeting}>&#x2192; חזרה למודרך</button>
+        <button className="sup-rail-back" onClick={leaveMeeting}>&#x2192; {own ? 'חזרה לרשימת המטופלים' : 'חזרה למודרך'}</button>
         <div className="sup-rail-meet">
           <div className="sup-rail-therapist">{therapist?.name}</div>
-          <label className="sup-rail-kicker" htmlFor="sup-meeting-date">תאריך מפגש ההדרכה</label>
+          <label className="sup-rail-kicker" htmlFor="sup-meeting-date">תאריך ה{terms.meeting}</label>
           <input
             type="date"
             id="sup-meeting-date"
@@ -642,8 +660,8 @@ export default function SupervisionSessionPage() {
       {/* ── Work area ── */}
       <main className="sup-work">
         <div className="sup-bar">
-          <h1 className="sup-bar-name">{selectedPatient ? selectedPatient.name : 'מפגש הדרכה'}</h1>
-          {selectedPatient && history && <span className="sup-bar-seq">הדרכה {history.length + 1}</span>}
+          <h1 className="sup-bar-name">{selectedPatient ? selectedPatient.name : terms.meeting}</h1>
+          {selectedPatient && history && <span className="sup-bar-seq">{terms.session} {history.length + 1}</span>}
           <span className="sup-bar-spacer" />
           <button
             className={`btn sup-record-btn${recording ? ' recording' : ''}`}
@@ -766,16 +784,16 @@ export default function SupervisionSessionPage() {
       </main>
 
       {/* ── Date rail ── */}
-      <aside className="sup-dates" aria-label="רצף ההדרכות">
+      <aside className="sup-dates" aria-label={`רצף ה${terms.sessions}`}>
         {selectedPatient && (
           <>
-            <h2 className="sup-dates-title">רצף ההדרכות של {selectedPatient.name}</h2>
+            <h2 className="sup-dates-title">רצף ה{terms.sessions} של {selectedPatient.name}</h2>
             <ol className="sup-days">
               <li className="sup-day today">
                 <div className="sup-day-date"><b>{today.day}</b><span>{today.year}</span></div>
                 <div className="sup-day-body">
                   <span className="sup-day-mark">היום</span>
-                  {history && <span className="sup-day-num">הדרכה {history.length + 1}</span>}
+                  {history && <span className="sup-day-num">{terms.session} {history.length + 1}</span>}
                 </div>
               </li>
               {history === undefined ? (
@@ -783,7 +801,7 @@ export default function SupervisionSessionPage() {
                   <div className="sup-skeleton" /><div className="sup-skeleton" /><div className="sup-skeleton short" />
                 </li>
               ) : history.length === 0 ? (
-                <li className="sup-day-note">זו ההדרכה הראשונה של המטופל. מה שייכתב היום יופיע כאן במפגש הבא.</li>
+                <li className="sup-day-note">{own ? 'זה המפגש הראשון שמתועד למטופל.' : 'זו ההדרכה הראשונה של המטופל.'} מה שייכתב היום יופיע כאן במפגש הבא.</li>
               ) : history.map(renderEntry)}
             </ol>
           </>
@@ -797,7 +815,7 @@ export default function SupervisionSessionPage() {
             <h3>הקלטת המפגש</h3>
             <p>
               ההקלטה משמשת רק להפקת הסיכום. הקלטת הקול והתמליל אינם נשמרים.
-              יש ליידע את המודרך שהמפגש מוקלט.
+              {own ? 'יש לקבל את הסכמת המטופל להקלטת המפגש.' : 'יש ליידע את המודרך שהמפגש מוקלט.'}
             </p>
             <button className="btn btn-primary sup-record-option" onClick={() => handleStartRecording(true)}>
               מפגש בזום
@@ -818,7 +836,7 @@ export default function SupervisionSessionPage() {
       {review && (
         <div className="confirm-overlay">
           <div className="confirm-dialog sup-review-dialog">
-            <h3>סיכום המפגש: {therapist?.name}</h3>
+            <h3>סיכום המפגש: {own ? selectedPatient?.name : therapist?.name}</h3>
             <p>הסיכום הופק מההקלטה. אפשר לערוך אותו לפני השמירה.</p>
             {review.failedSegments > 0 && (
               <div className="alert alert-error">
@@ -845,7 +863,7 @@ export default function SupervisionSessionPage() {
                     onChange={e => updateReviewPatient(r.patientId, 'riskNote', e.target.value)} />
                 </div>
               ))}
-              <div className="sup-review-section">
+              {!own && <div className="sup-review-section">
                 <div className="sup-review-title">כללי: המודרך ותהליך ההדרכה</div>
                 <div className="sup-field-label">עיקרי הדברים</div>
                 <textarea className="sup-field-textarea" rows={4} value={review.generalSummary}
@@ -853,7 +871,7 @@ export default function SupervisionSessionPage() {
                 <div className="sup-field-label">נקודות להמשך מעקב</div>
                 <textarea className="sup-field-textarea" rows={4} value={review.generalRecommendations}
                   onChange={e => updateReview('generalRecommendations', e.target.value)} />
-              </div>
+              </div>}
             </div>
             {error && <div className="alert alert-error">{error}</div>}
             <div className="confirm-dialog-actions">

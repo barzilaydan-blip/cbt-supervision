@@ -171,19 +171,22 @@ async function savePdf(container, fileName) {
  * @param {string} params.patientName
  * @param {string} params.therapistName
  * @param {Array}  params.sessions - sorted ascending by date
+ * @param {boolean} params.therapy - the therapist's own therapy sessions, not supervisions
  */
-export async function exportPatientPDF({ patientName, therapistName, sessions }) {
+export async function exportPatientPDF({ patientName, therapistName, sessions, therapy = false }) {
+  const word = therapy ? 'מפגש' : 'הדרכה';
+  const words = therapy ? 'מפגשים' : 'הדרכות';
   const container = buildDocument({
-    title: `מעקב הדרכות: ${patientName}`,
+    title: `מעקב ${words}: ${patientName}`,
     facts: [
       `מטפל: ${therapistName}`,
-      sessions.length === 1 ? 'הדרכה אחת' : `${sessions.length} הדרכות`,
+      sessions.length === 1 ? (therapy ? 'מפגש אחד' : 'הדרכה אחת') : `${sessions.length} ${words}`,
       `הופק ב-${todayLabel()}`,
     ],
   });
 
   if (sessions.length === 0) {
-    addBlock(container, 'אין הדרכות לייצוא.', `color:${INK_2};padding:24px 0;`);
+    addBlock(container, `אין ${words} לייצוא.`, `color:${INK_2};padding:24px 0;`);
   }
 
   sessions.forEach((session, index) => {
@@ -191,9 +194,11 @@ export async function exportPatientPDF({ patientName, therapistName, sessions })
     const tags = Object.entries(n.tags || {}).filter(([, on]) => on).map(([key]) => TAG_LABELS[key] || key);
     const parts = [
       n.danger && n.dangerNote?.trim() && labelled('הערת מסוכנות', n.dangerNote, RISK),
-      n.report?.trim() && labelled('דיווח המודרך', n.report),
-      n.issues?.trim() && labelled('סוגיות ודילמות', n.issues),
+      n.report?.trim() && labelled(therapy ? 'מה שיתף המטופל' : 'דיווח המודרך', n.report),
+      n.issues?.trim() && labelled(therapy ? 'ניתוח פסיכולוגי' : 'סוגיות ודילמות', n.issues),
+      n.intervention?.trim() && labelled('ההתערבות ברוח ACT ו-CBT', n.intervention),
       n.recommendations?.trim() && labelled('המלצות וצעדים הבאים', n.recommendations),
+      // The AI's understanding and feedback (aiFeedback) is the therapist's own and stays out too
       // Notes written before the three-field structure existed
       ...FOCUS_AREAS
         .filter(fa => typeof n[fa.key] === 'string' && n[fa.key].trim())
@@ -206,17 +211,17 @@ export async function exportPatientPDF({ patientName, therapistName, sessions })
     addBlock(container, `
       <div style="flex:none;width:92px;">
         <div style="font-size:17px;font-weight:700;">${escapeHtml(shortDate(session.date))}</div>
-        <div style="font-size:13px;color:${INK_2};">הדרכה ${index + 1}</div>
+        <div style="font-size:13px;color:${INK_2};">${word} ${index + 1}</div>
         ${n.danger ? `<div style="font-size:13px;font-weight:700;color:${RISK};">מסוכנות</div>` : ''}
       </div>
       <div style="flex:1;min-width:0;border-right:2px solid ${RULE};padding-right:16px;">
         ${tags.length ? `<div style="font-size:13px;color:${INK_2};">${tags.map(escapeHtml).join(' · ')}</div>` : ''}
-        ${parts.length ? parts.join('') : `<div style="color:${INK_2};">לא נשמר תוכן להדרכה זו.</div>`}
+        ${parts.length ? parts.join('') : `<div style="color:${INK_2};">לא נשמר תוכן ל${word} זו.</div>`}
       </div>
     `, `display:flex;gap:16px;padding:14px 0;border-top:1px solid ${RULE_SOFT};`);
   });
 
-  await savePdf(container, `הדרכות_${safeFileName(patientName)}.pdf`);
+  await savePdf(container, `${words}_${safeFileName(patientName)}.pdf`);
 }
 
 /**

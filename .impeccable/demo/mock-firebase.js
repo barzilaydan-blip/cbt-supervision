@@ -6,12 +6,15 @@ const data = {
   therapists: {
     t1: { name: 'נועה לוי (הדגמה)', profession: 'פסיכולוגית', email: 'demo@example.com', createdAt: stamp('2026-05-01') },
     t2: { name: 'יואב שחר (הדגמה)', profession: 'עובד סוציאלי', email: 'demo2@example.com', createdAt: stamp('2026-06-01') },
+    // Named like the real own-practice record, so therapy mode switches on
+    t3: { name: 'דן ברזילי (הדגמה)', profession: 'פסיכולוג קליני', email: 'demo3@example.com', createdAt: stamp('2026-04-01') },
   },
   patients: {
     p1: { therapistId: 't1', name: 'ר.מ.', createdAt: stamp('2026-06-10'), background: 'בן 34, חרדה חברתית. מטרות: השתתפות בישיבות צוות, יוזמת שיחה עם עמיתים. טיפול שבועי.' },
     p2: { therapistId: 't1', name: 'ד.ק.', createdAt: stamp('2026-08-20'), background: 'בת 27, דיכאון מז\'ורי, אפיזודה שנייה.' },
     p3: { therapistId: 't1', name: 'א.ש.', createdAt: stamp('2026-03-02'), background: 'בן 41, OCD עם טקסי בדיקה.' },
     p4: { therapistId: 't1', name: 'ת.ב.', createdAt: stamp('2026-10-01'), background: '' },
+    p5: { therapistId: 't3', name: 'ע.נ.', createdAt: stamp('2026-09-01'), background: 'בת 31, הפרעת חרדה כללית. דאגנות סביב עבודה ובריאות.' },
   },
   sessions: {
     s1: { patientId: 'p1', therapistId: 't1', date: '2026-08-17', notes: { report: 'ברית טיפולית טובה. המטופל חושש מביקורת מצד המטפלת.', issues: 'כיצד לדבר על החשש בתוך הקשר.', recommendations: 'לשקף את החשש ולנרמל.' } },
@@ -20,6 +23,7 @@ const data = {
     s4: { patientId: 'p1', therapistId: 't1', date: '2026-09-28', notes: {}, summary: 'נבנה סולם חשיפות בן שמונה שלבים. המטופל מתקשה בשלבים שכוללים פנייה לדמות סמכות. סוכם להתחיל בחשיפה מדורגת 3 מתוך 10.', supervisorRecs: '- האם בוצעה חשיפה ראשונה ומה היו הדירוגים\n- לעבור יחד על רישום המחשבות\n- קצב הפגישות של המודרכת' },
     s5: { patientId: 'p2', therapistId: 't1', date: '2026-09-28', notes: { danger: true, dangerNote: 'מחשבות אובדניות פסיביות, ללא תוכנית.' }, summary: 'עלו מחשבות אובדניות פסיביות ללא תוכנית או כוונה. נבנתה תוכנית ביטחון. המשך הפעלה התנהגותית.', supervisorRecs: '- לוודא שבוצעה הערכת סיכון חוזרת\n- לבדוק שתוכנית הביטחון בידי המטופלת' },
     s6: { patientId: 'p3', therapistId: 't1', date: '2026-09-28', notes: { report: 'ירידה בזמן הטקסים מ-90 ל-40 דקות ביום.', issues: 'בני המשפחה משתפים פעולה עם הטקסים.', recommendations: 'לשלב פגישת הדרכה לבני המשפחה.' } },
+    s7: { patientId: 'p5', therapistId: 't3', date: '2026-10-28', notes: { report: 'דאגות לגבי הערכה בעבודה.', issues: 'דאגה כהימנעות מאי ודאות.', intervention: 'פסיכו-חינוך על מעגל הדאגה.' }, summary: 'הוצג מודל הדאגה. המטופלת זיהתה את הדאגה כניסיון לשלוט באי ודאות.', supervisorRecs: '- לבדוק את יומן הדאגות' },
   },
   supervisionSessions: {
     m1: { therapistId: 't1', date: '2026-09-28', summary: 'המודרכת שיתפה בתחושה שהיא ממהרת בפגישות. סוכם שתקליט פגישה אחת.', supervisorRecs: '- לבדוק שהוקלטה פגישה ולהאזין יחד לקטע ממנה' },
