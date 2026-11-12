@@ -18,6 +18,7 @@ import { FOCUS_AREAS, CONCEPTUALIZATION_SECTIONS } from '../constants.js';
 import { exportPatientPDF } from '../utils/exportPDF.js';
 import { sendFormEmail as sendFormEmailUtil } from '../utils/emailService.js';
 import { isOwnPractice, sessionTerms, NOTE_KEYS } from '../utils/sessionModes.js';
+import { buildSummaryEmail, openGmailDraft } from '../utils/summaryEmail.js';
 
 function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
@@ -74,6 +75,7 @@ export default function PatientPage() {
   const [editingSessionId, setEditingSessionId] = useState(null);
   const [editDraft, setEditDraft] = useState({});
   const [savingSession, setSavingSession] = useState(false);
+  const [mailNote, setMailNote] = useState('');
 
   // Dan Barzilay's own clients are therapy sessions; everyone else's are supervisions
   const own = isOwnPractice(therapist);
@@ -234,6 +236,23 @@ export default function PatientPage() {
     }
   }
 
+  // One supervision as a Gmail draft to the therapist
+  function sendSessionSummary(s) {
+    const n = s.notes || {};
+    const opened = openGmailDraft({
+      to: therapist?.email,
+      ...buildSummaryEmail({
+        therapistName: therapist?.name,
+        date: formatDate(s.date),
+        items: [{ patientName: patient.name, summary: s.summary, issues: n.issues, recommendations: n.recommendations }],
+      }),
+    });
+    setMailNote(opened === 'clipboard'
+      ? 'הסיכום ארוך, ולכן הועתק. בחלון של Gmail לחץ בגוף המייל ואז Ctrl+V.'
+      : 'המייל נפתח בלשונית חדשה. אחרי שתעבור עליו, לחץ שם "שליחה".');
+    setTimeout(() => setMailNote(''), 8000);
+  }
+
   function startEditing(s) {
     const n = s.notes || {};
     setEditDraft({
@@ -316,6 +335,7 @@ export default function PatientPage() {
 
       {error && <div className="alert alert-error">{error}</div>}
       {emailError && <div className="alert alert-error">{emailError}</div>}
+      {mailNote && <div className="alert alert-info">{mailNote}</div>}
 
       {patient?.background && (
         <section className="sheet">
@@ -369,6 +389,9 @@ export default function PatientPage() {
                         {tags.map(t => <span key={t} className="pt-tag">{TAG_LABELS[t] || t}</span>)}
                       </button>
                       <span className="pt-day-actions">
+                        {!isEditing && !own && (s.summary || n.issues || n.recommendations) && (
+                          <button className="link-btn" onClick={() => sendSessionSummary(s)}>שלח למודרך</button>
+                        )}
                         {!isEditing && (
                           <button className="link-btn" onClick={() => { startEditing(s); if (!isExpanded) toggleArea(s.id); }}>עריכה</button>
                         )}

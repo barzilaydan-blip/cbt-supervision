@@ -7,6 +7,7 @@ import {
 import { db } from '../firebase.js';
 import { rephraseText, generateSessionSummary, analyzeSupervisionRecording, analyzeTherapySession } from '../utils/aiService.js';
 import { isOwnPractice, sessionTerms, NOTE_KEYS } from '../utils/sessionModes.js';
+import { buildSummaryEmail, openGmailDraft } from '../utils/summaryEmail.js';
 import { startRecording } from '../utils/recorder.js';
 import { transcribeSegment, isTranscriptionConfigured } from '../utils/transcriptionService.js';
 
@@ -107,6 +108,9 @@ export default function SupervisionSessionPage() {
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [confirmExit, setConfirmExit] = useState(false);
+  // After saving: what can be sent to the therapist, and a note after opening the draft
+  const [savedItems, setSavedItems] = useState(null);
+  const [mailNote, setMailNote] = useState('');
 
   // { [patientId]: sessionId } — existing sessions on the current date
   const [existingSessionIds, setExistingSessionIds] = useState({});
@@ -378,7 +382,7 @@ export default function SupervisionSessionPage() {
         ...(rev?.generalSummary.trim() && { summary: rev.generalSummary.trim() }),
         ...(rev?.generalRecommendations.trim() && { supervisorRecs: rev.generalRecommendations.trim() }),
       });
-      await Promise.all(
+      const items = await Promise.all(
         patients.filter(p => hasDraft(p.id) || recByPatient[p.id]).map(async (p) => {
           const typed = draftNotes[p.id] || emptyDraft();
           // A reviewed analysis replaces the typed fields; it was given them and merged them in
@@ -427,22 +431,26 @@ export default function SupervisionSessionPage() {
           const existingId = existingSessionIds[p.id];
           if (existingId) {
             // Session already exists on this date — update it
-            return updateDoc(doc(db, 'sessions', existingId), payload);
+            await updateDoc(doc(db, 'sessions', existingId), payload);
+          } else {
+            await addDoc(collection(db, 'sessions'), {
+              patientId: p.id, therapistId,
+              supervisionSessionId: supSessionRef.id,
+              date,
+              ...payload,
+              createdAt: serverTimestamp(),
+            });
           }
-          return addDoc(collection(db, 'sessions'), {
-            patientId: p.id, therapistId,
-            supervisionSessionId: supSessionRef.id,
-            date,
-            ...payload,
-            createdAt: serverTimestamp(),
-          });
+          return { patientName: p.name, summary, issues: notes.issues, recommendations: notes.recommendations };
         })
       );
       localStorage.removeItem(STORAGE_KEY);
       discardRecording();
       setReview(null);
       setSaved(true);
-      setTimeout(() => navigate(`/therapist/${therapistId}`), 1500);
+      // A supervision can be sent on to the therapist; the own practice has no one to send to
+      if (!own && items.length) setSavedItems(items);
+      else setTimeout(() => navigate(`/therapist/${therapistId}`), 1500);
     } catch (err) {
       console.error(err);
       setError('שגיאה בשמירה. נסה שנית.');
@@ -516,6 +524,16 @@ export default function SupervisionSessionPage() {
     } finally {
       setFinishStage('');
     }
+  }
+
+  function sendSummary() {
+    const opened = openGmailDraft({
+      to: therapist?.email,
+      ...buildSummaryEmail({ therapistName: therapist?.name, date: formatDate(date), items: savedItems }),
+    });
+    setMailNote(opened === 'clipboard'
+      ? 'הסיכום ארוך, ולכן הועתק. בחלון של Gmail לחץ בגוף המייל ואז Ctrl+V.'
+      : 'המייל נפתח בלשונית חדשה. אחרי שתעבור עליו, לחץ שם "שליחה".');
   }
 
   function updateReview(field, value) {
@@ -879,6 +897,25 @@ export default function SupervisionSessionPage() {
                 {saved ? 'נשמר' : saving ? 'שומר...' : 'אשר ושמור'}
               </button>
               <button className="btn btn-secondary" onClick={() => setReview(null)} disabled={saving || saved}>חזור למפגש</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Saved: offer to send the summary to the therapist */}
+      {savedItems && (
+        <div className="confirm-overlay">
+          <div className="confirm-dialog">
+            <h3>המפגש נשמר</h3>
+            <p>
+              אפשר לשלוח ל{therapist?.name} את הסיכום, הסוגיות וההמלצות. ייפתח מייל מוכן ב-Gmail, ואפשר לעבור עליו לפני השליחה.
+              הנקודות להמשך מעקב לא נשלחות.
+              {!therapist?.email && ' למודרך אין כתובת מייל בפרטי המטפל, ולכן המייל ייפתח בלי נמען.'}
+            </p>
+            {mailNote && <div className="alert alert-info">{mailNote}</div>}
+            <div className="confirm-dialog-actions">
+              <button className="btn btn-primary" onClick={sendSummary}>{mailNote ? 'פתח שוב את המייל' : 'שלח סיכום למודרך'}</button>
+              <button className="btn btn-secondary" onClick={() => navigate(`/therapist/${therapistId}`)}>סיום</button>
             </div>
           </div>
         </div>
