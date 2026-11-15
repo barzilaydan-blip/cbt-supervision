@@ -17,6 +17,74 @@ import {
 import { db } from '../firebase.js';
 import { sendMaterialsEmail, formatMaterialsListHtml } from '../utils/emailService.js';
 import { exportSummaryPDF } from '../utils/exportPDF.js';
+import { buildSummaryEmail, openGmailDraft } from '../utils/summaryEmail.js';
+import { isOwnPractice } from '../utils/sessionModes.js';
+
+function longDate(dateStr) {
+  const [y, m, d] = (dateStr || '').split('-');
+  return new Date(Number(y), Number(m) - 1, Number(d)).toLocaleDateString('he-IL', { year: 'numeric', month: 'long', day: 'numeric' });
+}
+
+// Saved meetings, newest first: the sessions of each date that have something to send
+function meetingsToSend(allSessions, patients) {
+  const byDate = {};
+  allSessions.forEach(s => {
+    const n = s.notes || {};
+    if (!s.date || !(s.summary?.trim() || n.issues?.trim() || n.recommendations?.trim())) return;
+    const patient = patients.find(p => p.id === s.patientId);
+    if (!patient) return;
+    (byDate[s.date] ||= []).push({
+      patientName: patient.name, summary: s.summary, issues: n.issues, recommendations: n.recommendations,
+    });
+  });
+  return Object.keys(byDate).sort().reverse().slice(0, 10).map(date => ({ date, items: byDate[date] }));
+}
+
+function SendSummaryDialog({ therapist, patients, allSessions, onClose }) {
+  const [note, setNote] = useState('');
+  const meetings = meetingsToSend(allSessions, patients);
+  function send(m) {
+    const opened = openGmailDraft({
+      to: therapist?.email,
+      ...buildSummaryEmail({ therapistName: therapist?.name, date: longDate(m.date), items: m.items }),
+    });
+    setNote(opened === 'clipboard'
+      ? 'הסיכום ארוך, ולכן הועתק. בחלון של Gmail לחץ בגוף המייל ואז Ctrl+V.'
+      : 'המייל נפתח בלשונית חדשה. אחרי שתעבור עליו, לחץ שם "שליחה".');
+  }
+  return (
+    <div className="confirm-overlay" onClick={onClose}>
+      <div className="confirm-dialog sup-review-dialog" onClick={e => e.stopPropagation()}>
+        <h3>שליחת סיכום מפגש למודרך</h3>
+        <p>
+          בחר מפגש. ייפתח מייל מוכן ב-Gmail עם הסיכום, הסוגיות וההמלצות של כל מטופל שנדון בו. הנקודות להמשך מעקב לא נשלחות.
+          {!therapist?.email && ' למודרך אין כתובת מייל בפרטי המטפל, ולכן המייל ייפתח בלי נמען.'}
+        </p>
+        {note && <div className="alert alert-info">{note}</div>}
+        {meetings.length === 0 ? (
+          <div className="sup-empty">עדיין אין מפגש שמור עם סיכום לשליחה.</div>
+        ) : (
+          <ul className="ruled-list">
+            {meetings.map(m => (
+              <li key={m.date} className="ruled-row">
+                <span className="ruled-row-main">
+                  <span className="ruled-row-name">{longDate(m.date)}</span>
+                  <span className="ruled-row-meta">{m.items.map(i => i.patientName).join(', ')}</span>
+                </span>
+                <div className="ruled-row-actions">
+                  <button className="link-btn" onClick={() => send(m)}>שלח</button>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        <div className="confirm-dialog-actions">
+          <button className="btn btn-secondary" onClick={onClose}>סגור</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 function ConfirmDialog({ message, onConfirm, onCancel }) {
   return (
@@ -181,6 +249,7 @@ export default function TherapistPage() {
   const [allSessions, setAllSessions] = useState([]);
 
   const [showSummary, setShowSummary] = useState(false);
+  const [showSendSummary, setShowSendSummary] = useState(false);
 
   // Patient profile editing
   const [editingProfilePatient, setEditingProfilePatient] = useState(null);
@@ -424,6 +493,9 @@ export default function TherapistPage() {
             פרטי המטפל
           </button>
           <button className="btn btn-secondary" onClick={() => setShowSummary(true)}>סיכום שעות</button>
+          {therapist && !isOwnPractice(therapist) && (
+            <button className="btn btn-secondary" onClick={() => setShowSendSummary(true)}>שלח סיכום למודרך</button>
+          )}
           <button className="btn btn-secondary" aria-expanded={showMaterials} onClick={() => setShowMaterials(v => !v)}>
             שלח חומרים
           </button>
@@ -623,6 +695,10 @@ export default function TherapistPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      {showSendSummary && (
+        <SendSummaryDialog therapist={therapist} patients={patients} allSessions={allSessions} onClose={() => setShowSendSummary(false)} />
       )}
 
       {confirmDelete && (
